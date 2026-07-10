@@ -17,7 +17,8 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
 - **All the original controls:**
   - Dungeon size (Fine … Colossal, plus Custom cols × rows)
   - Dungeon layout: Square, Rectangle, Box, Cross, Dagger, Saltire, Keep,
-    Hexagon, Round, and **Cavernous** (a cellular-automata cave)
+    Hexagon, Round, **Nexus** (a large central chamber with labyrinthine arms
+    sprawling out of it), and **Cavernous** (a cellular-automata cave)
   - Room layout (Sparse / Scattered / Dense / Symmetric) and room size
   - Door sets (None / Basic / Secure / Standard / Deathtrap) — archways, doors,
     locked, trapped, secret, and portcullis

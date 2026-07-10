@@ -39,6 +39,7 @@ export const FIELDS: OptionDef[] = [
       "Keep",
       "Hexagon",
       "Round",
+      "Nexus",
       "Cavernous",
     ]),
   },

@@ -22,6 +22,7 @@ export type DungeonLayout =
   | "Keep"
   | "Hexagon"
   | "Round"
+  | "Nexus"
   | "Cavernous";
 
 export type RoomLayout = "Sparse" | "Scattered" | "Dense" | "Symmetric";

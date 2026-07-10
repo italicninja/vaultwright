@@ -191,6 +191,10 @@ class Generator {
   // - - - rooms - - -
 
   private emplaceRooms() {
+    if (this.opt.dungeon_layout === "Nexus") {
+      this.emplaceNexus();
+      return;
+    }
     const layout = this.opt.room_layout;
     if (layout === "Dense") {
       this.packRooms();
@@ -200,11 +204,25 @@ class Generator {
     }
   }
 
-  private scatterRooms() {
+  // A large central chamber, then a sparse scatter of outer rooms. The central
+  // room's size earns it many door openings, so the corridor maze branches out
+  // of it into sprawling labyrinthine arms.
+  private emplaceNexus() {
+    const h = Math.max(3, Math.round(this.n_i / 3));
+    const w = Math.max(3, Math.round(this.n_j / 3));
+    const ci = Math.floor((this.n_i - h) / 2);
+    const cj = Math.floor((this.n_j - w) / 2);
+    this.emplaceRoom({ i: ci, j: cj, height: h, width: w });
+    this.scatterRooms(0.14);
+  }
+
+  private scatterRooms(densityOverride?: number) {
     const base = ROOM_SIZE[this.opt.room_size] ?? ROOM_SIZE.Medium;
     const avgUnits = base.size + base.radix / 2;
     const roomCells = 2 * avgUnits - 1;
-    const density = this.opt.room_layout === "Sparse" ? 0.16 : 0.32;
+    const density =
+      densityOverride ??
+      (this.opt.room_layout === "Sparse" ? 0.16 : 0.32);
     const area = this.n_rows * this.n_cols;
     // Room footprint includes a one-cell spacing ring on each side; capacity is
     // the rough max rooms that fit, scaled by density (with a small buffer for
