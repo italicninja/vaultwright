@@ -244,6 +244,31 @@ input[type="range"] {
   font-size: 20px;
   color: var(--accent);
 }
+.codex-theme {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(200, 162, 74, 0.08), transparent);
+}
+.codex-theme-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.codex-theme p {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  line-height: 1.55;
+  font-style: italic;
+  color: #e8e2d4;
+}
+
 .codex-section {
   margin-bottom: 16px;
 }

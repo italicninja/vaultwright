@@ -27,8 +27,9 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
   - 15 map styles and Square / Hex / Vertical-Hex grids
 - **Canvas renderer** with door & stair glyphs, room numbers, and a legend.
 - **Stocked descriptions (the "Codex")** — click any room on the map to read a
-  full writeup: an overall dungeon theme (history, walls, floor, temperature,
-  illumination), a corridor-feature key, a wandering-monster table, and per-room
+  full writeup: an evocative **dungeon theme** (a d100-style headline concept),
+  an overall theme (history, walls, floor, temperature, illumination), a
+  corridor-feature key, a wandering-monster table, and per-room
   entries with door details, trap/secret notes, "leads to room #N" links,
   monsters (with CR/XP/difficulty), treasure, tricks, and hidden hoards. All
   deterministically derived from the seed.

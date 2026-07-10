@@ -7,6 +7,7 @@ import { RNG } from "../dungeon/rng";
 import { CORRIDOR, ROOM, OPENSPACE, DOORSPACE } from "../dungeon/flags";
 import type { Dungeon, Door, Dir } from "../dungeon/types";
 import * as T from "./tables";
+import { THEMES } from "./themes";
 
 const DI: Record<Dir, number> = { north: -1, south: 1, west: 0, east: 0 };
 const DJ: Record<Dir, number> = { north: 0, south: 0, west: -1, east: 1 };
@@ -50,6 +51,7 @@ export interface CorridorFeature {
   text: string;
 }
 export interface DungeonContent {
+  theme: string;
   general: {
     history: string;
     size: string;
@@ -68,6 +70,9 @@ const MON_BY_NAME = new Map(T.MONSTERS.map((m) => [m.name, m]));
 export function stockDungeon(dungeon: Dungeon): DungeonContent {
   // Independent RNG stream, still seed-derived for reproducibility.
   const rng = new RNG((dungeon.seed ^ 0x5f3759df) >>> 0);
+
+  // Theme uses its own stream so it stays stable regardless of other content.
+  const theme = new RNG((dungeon.seed ^ 0x9e3779b9) >>> 0).pick(THEMES);
 
   const general = genGeneral(rng, dungeon);
   const corridorFeatures = genCorridorFeatures(rng, dungeon);
@@ -118,7 +123,7 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     });
   }
 
-  return { general, corridorFeatures, wanderingMonsters, rooms };
+  return { theme, general, corridorFeatures, wanderingMonsters, rooms };
 }
 
 // - - - general / theme - - -

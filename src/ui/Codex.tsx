@@ -15,7 +15,8 @@ export function Codex({
   selectedRoom: number | null;
   onSelectRoom: (id: number | null) => void;
 }) {
-  const { general, corridorFeatures, wanderingMonsters, rooms } = content;
+  const { theme, general, corridorFeatures, wanderingMonsters, rooms } =
+    content;
   const roomIds = dungeon.rooms.map((r) => r.id);
   const selRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +31,11 @@ export function Codex({
     <div className="codex">
       <div className="codex-inner">
         <h2 className="codex-title">{name}</h2>
+
+        <div className="codex-theme">
+          <div className="codex-theme-label">Theme</div>
+          <p>{theme}</p>
+        </div>
 
         <Section title="General">
           <Row label="History">{general.history}</Row>
