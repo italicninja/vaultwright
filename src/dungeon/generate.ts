@@ -27,6 +27,7 @@ import {
   roomIdOf,
 } from "./flags";
 import { buildMask } from "./masks";
+import { computeConnectivity } from "./connectivity";
 import type {
   Dungeon,
   DungeonOptions,
@@ -133,7 +134,7 @@ class Generator {
     if (this.opt.add_stairs) this.emplaceStairs();
     this.cleanDungeon();
 
-    return {
+    const dungeon: Dungeon = {
       options: this.opt,
       seed: this.opt.seed,
       n_rows: this.n_rows,
@@ -143,6 +144,8 @@ class Generator {
       doors: this.doors,
       stairs: this.stairs,
     };
+    computeConnectivity(dungeon);
+    return dungeon;
   }
 
   // - - - dimensions & grid init - - -
@@ -368,6 +371,8 @@ class Generator {
         row: sill.door_r,
         col: sill.door_c,
         type,
+        roomId: room.id,
+        dir: sill.dir,
         outId: sill.out_id,
         key: meta.key,
         desc: meta.desc,

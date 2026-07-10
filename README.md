@@ -25,6 +25,12 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
   - Dead-end removal (None / Some / All) and stairs
   - 15 map styles and Square / Hex / Vertical-Hex grids
 - **Canvas renderer** with door & stair glyphs, room numbers, and a legend.
+- **Stocked descriptions (the "Codex")** — click any room on the map to read a
+  full writeup: an overall dungeon theme (history, walls, floor, temperature,
+  illumination), a corridor-feature key, a wandering-monster table, and per-room
+  entries with door details, trap/secret notes, "leads to room #N" links,
+  monsters (with CR/XP/difficulty), treasure, tricks, and hidden hoards. All
+  deterministically derived from the seed.
 - **PNG export** of the current map.
 
 ## Getting started
@@ -41,18 +47,23 @@ npm run preview  # preview the production build
 ```
 src/
   dungeon/
-    generate.ts   # the generation algorithm (rooms, corridors, doors, stairs)
-    masks.ts      # dungeon-layout masks (Box, Cross, Round, …)
-    flags.ts      # per-cell bit flags
-    rng.ts        # seeded PRNG (mulberry32)
-    types.ts      # option & data-model types
+    generate.ts     # the generation algorithm (rooms, corridors, doors, stairs)
+    connectivity.ts # traces where each door leads through the corridors
+    masks.ts        # dungeon-layout masks (Box, Cross, Round, …)
+    flags.ts        # per-cell bit flags
+    rng.ts          # seeded PRNG (mulberry32)
+    types.ts        # option & data-model types
+  content/
+    tables.ts       # flavor tables (monsters, treasure, traps, features, …)
+    stock.ts        # deterministic "stocker" → theme + per-room descriptions
   render/
-    draw.ts       # canvas renderer
-    palettes.ts   # per-map-style colour palettes
+    draw.ts         # canvas renderer (map, selection, corridor letters)
+    palettes.ts     # per-map-style colour palettes
   ui/
-    options.ts    # control definitions + client-side name generator
+    options.ts      # control definitions + client-side name generator
+    Codex.tsx       # description panel
     Legend.tsx
-  App.tsx         # the app shell / control panel
+  App.tsx           # the app shell / control panel
 ```
 
 ## Credits

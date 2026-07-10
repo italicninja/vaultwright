@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { generate } from "./dungeon/generate";
+import { stockDungeon } from "./content/stock";
 import type { DungeonOptions } from "./dungeon/types";
-import { renderDungeon, measure } from "./render/draw";
+import { renderDungeon, measure, hitRoom } from "./render/draw";
 import {
   DEFAULT_OPTIONS,
   FIELDS,
@@ -9,6 +10,7 @@ import {
   type OptionDef,
 } from "./ui/options";
 import { Legend } from "./ui/Legend";
+import { Codex } from "./ui/Codex";
 
 const MAX_SEED = 2147483647;
 const randInt = (n: number) => Math.floor(Math.random() * n);
@@ -20,9 +22,14 @@ export function App() {
     name: randomName(Math.random),
   }));
   const [cellSize, setCellSize] = useState(20);
+  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const dungeon = useMemo(() => generate(options), [options]);
+  const content = useMemo(() => stockDungeon(dungeon), [dungeon]);
+
+  // A fresh dungeon clears the selection.
+  useEffect(() => setSelectedRoom(null), [dungeon]);
 
   const roomCount = dungeon.rooms.filter((room) => {
     const cr = Math.round((room.north + room.south) / 2);
@@ -37,8 +44,23 @@ export function App() {
       cellSize,
       grid: options.grid,
       showLabels: true,
+      selectedRoom,
+      features: content.corridorFeatures,
     });
-  }, [dungeon, cellSize, options.grid]);
+  }, [dungeon, cellSize, options.grid, selectedRoom, content]);
+
+  const onCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const id = hitRoom(dungeon, px, py, cellSize);
+      setSelectedRoom((cur) => (id === cur ? null : id));
+    },
+    [dungeon, cellSize],
+  );
 
   const set = useCallback(
     <K extends keyof DungeonOptions>(key: K, value: DungeonOptions[K]) => {
@@ -85,6 +107,7 @@ export function App() {
       cellSize: 24,
       grid: options.grid,
       showLabels: true,
+      features: content.corridorFeatures,
     });
     off.toBlob((blob) => {
       if (!blob) return;
@@ -98,7 +121,7 @@ export function App() {
       a.click();
       URL.revokeObjectURL(url);
     }, "image/png");
-  }, [dungeon, options.grid, options.name, options.seed]);
+  }, [dungeon, options.grid, options.name, options.seed, content]);
 
   const dims = measure(dungeon, cellSize);
 
@@ -219,8 +242,21 @@ export function App() {
             {dungeon.stairs.length} stairs · {dims.width}×{dims.height}px
           </span>
         </div>
-        <div className="canvas-scroll">
-          <canvas ref={canvasRef} className="map-canvas" />
+        <div className="stage-body">
+          <div className="canvas-scroll">
+            <canvas
+              ref={canvasRef}
+              className="map-canvas"
+              onClick={onCanvasClick}
+            />
+          </div>
+          <Codex
+            dungeon={dungeon}
+            content={content}
+            name={options.name}
+            selectedRoom={selectedRoom}
+            onSelectRoom={setSelectedRoom}
+          />
         </div>
       </main>
     </div>

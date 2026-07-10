@@ -101,11 +101,16 @@ export type DoorType =
   | "secret"
   | "portc";
 
+export type Dir = "north" | "south" | "west" | "east";
+
 export interface Door {
   row: number;
   col: number;
   type: DoorType;
-  outId?: number; // connected room id, if any
+  roomId: number; // the room this door belongs to
+  dir: Dir; // direction from that room, outward through the door
+  outId?: number; // connected room id, if directly adjacent
+  destId?: number; // room reached through the corridor beyond, if unambiguous
   key: string; // short label glyph
   desc: string; // human-readable description
 }

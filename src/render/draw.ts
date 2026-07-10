@@ -12,14 +12,32 @@ import {
   DOORSPACE,
   STAIR_DN,
   STAIR_UP,
+  roomIdOf,
 } from "../dungeon/flags";
 import type { Dungeon, GridStyle } from "../dungeon/types";
+import type { CorridorFeature } from "../content/stock";
 import { getPalette } from "./palettes";
 
 export interface RenderConfig {
   cellSize: number;
   grid: GridStyle;
   showLabels: boolean;
+  selectedRoom?: number | null;
+  features?: CorridorFeature[];
+}
+
+/** Maps a pixel position on the canvas to a room id, or null. */
+export function hitRoom(
+  dungeon: Dungeon,
+  px: number,
+  py: number,
+  cellSize: number,
+): number | null {
+  const c = Math.floor(px / cellSize);
+  const r = Math.floor(py / cellSize);
+  const v = dungeon.cell[r]?.[c];
+  if (v && v & ROOM) return roomIdOf(v);
+  return null;
 }
 
 const DEFAULT_CELL = 20;
@@ -88,8 +106,64 @@ export function renderDungeon(
     }
   }
 
+  // Corridor feature letters.
+  if (config.features?.length) {
+    drawCorridorLetters(ctx, config.features, cs, pal.ink, pal.floor);
+  }
+
   // Room numbers.
   if (config.showLabels) drawLabels(ctx, dungeon, cs, pal.ink, pal.floor);
+
+  // Selection highlight (drawn last, over everything).
+  if (config.selectedRoom != null) {
+    drawSelection(ctx, dungeon, cs, config.selectedRoom);
+  }
+}
+
+function drawSelection(
+  ctx: CanvasRenderingContext2D,
+  dungeon: Dungeon,
+  cs: number,
+  roomId: number,
+) {
+  ctx.save();
+  ctx.fillStyle = "rgba(125, 92, 255, 0.28)";
+  for (let r = 0; r <= dungeon.n_rows; r++) {
+    for (let c = 0; c <= dungeon.n_cols; c++) {
+      const v = dungeon.cell[r][c];
+      if (v & ROOM && roomIdOf(v) === roomId) {
+        ctx.fillRect(c * cs, r * cs, cs, cs);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawCorridorLetters(
+  ctx: CanvasRenderingContext2D,
+  features: CorridorFeature[],
+  cs: number,
+  ink: string,
+  floor: string,
+) {
+  ctx.save();
+  ctx.font = `bold ${Math.round(cs * 0.6)}px Georgia, serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const f of features) {
+    const x = f.col * cs + cs / 2;
+    const y = f.row * cs + cs / 2;
+    ctx.fillStyle = floor;
+    ctx.beginPath();
+    ctx.arc(x, y, cs * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, cs * 0.06);
+    ctx.strokeStyle = ink;
+    ctx.stroke();
+    ctx.fillStyle = ink;
+    ctx.fillText(f.letter, x, y + 0.5);
+  }
+  ctx.restore();
 }
 
 function drawGrid(
