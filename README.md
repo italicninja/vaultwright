@@ -24,7 +24,8 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
   - Dungeon size (Fine … Colossal, plus Custom cols × rows)
   - Dungeon layout: Square, Rectangle, Box, Cross, Dagger, Saltire, Keep,
     Hexagon, Round, **Nexus** (a large central chamber with labyrinthine arms
-    sprawling out of it), and **Cavernous** (a cellular-automata cave)
+    sprawling out of it), **Five Room** (see below), and **Cavernous** (a
+    cellular-automata cave)
   - Room layout (Sparse / Scattered / Dense / Symmetric) and room size
   - Door sets (None / Basic / Secure / Standard / Deathtrap): archways, doors,
     locked, trapped, secret, and portcullis
@@ -39,6 +40,18 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
   entries with door details, trap/secret notes, "leads to room #N" links,
   monsters (with CR/XP/difficulty), treasure, tricks, and hidden hoards. All
   deterministically derived from the seed.
+- **Five-room dungeons**: a whole adventure in five beats - entrance, puzzle,
+  setback, climax, resolution - the structure John Four wrote up at
+  roleplayingtips.com. Rooms are laid out along one of eleven topologies drawn
+  from Matthew J. Neagley's "Nine Forms of the Five Room Dungeon" (Gnome Stew)
+  and its 21-form expansion: Railroad, Arrow, Cross, Evil Mule, Fauchard Fork,
+  Foglio's Snail, Moose, Paw, V for Vendetta, Cat's Cradle and Crown. The shape
+  is what keeps two of them from feeling alike, so each beat is also rolled a
+  guise from the flavor tables - an entrance can be a guardian or a parley, a
+  setback can be a false victory as easily as a false defeat - and the beat
+  decides the room's centrepiece: the puzzle gets a trick, the setback a trap,
+  the climax the boss, the resolution the hoard. Stairs go in the entrance (up)
+  and the resolution (down). The Codex lists the shape and its beats.
 - **PNG export** of the current map.
 
 ## Getting started
@@ -58,6 +71,7 @@ src/
     generate.ts     # the generation algorithm (rooms, corridors, doors, stairs)
     connectivity.ts # traces where each door leads through the corridors
     masks.ts        # dungeon-layout masks (Box, Cross, Round, …)
+    fiveroom.ts     # five-room story beats and the topologies they lay out in
     flags.ts        # per-cell bit flags
     rng.ts          # seeded PRNG (mulberry32)
     types.ts        # option & data-model types

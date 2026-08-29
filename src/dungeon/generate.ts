@@ -27,6 +27,7 @@ import {
   roomIdOf,
 } from "./flags";
 import { buildMask } from "./masks";
+import { TOPOLOGIES, roleFor } from "./fiveroom";
 import { computeConnectivity } from "./connectivity";
 import type {
   Dungeon,
@@ -34,6 +35,7 @@ import type {
   Door,
   DoorType,
   Room,
+  RoomRole,
   Stair,
 } from "./types";
 
@@ -113,6 +115,7 @@ class Generator {
   doors: Door[] = [];
   stairs: Stair[] = [];
   connected = new Set<string>();
+  topology?: string;
 
   constructor(options: DungeonOptions) {
     this.opt = options;
@@ -125,6 +128,8 @@ class Generator {
 
     if (this.opt.dungeon_layout === "Cavernous") {
       this.generateCavern();
+    } else if (this.opt.dungeon_layout === "FiveRoom") {
+      this.buildFiveRoom();
     } else {
       this.emplaceRooms();
       this.openRooms();
@@ -143,6 +148,7 @@ class Generator {
       rooms: this.rooms,
       doors: this.doors,
       stairs: this.stairs,
+      topology: this.topology,
     };
     computeConnectivity(dungeon);
     return dungeon;
@@ -372,33 +378,38 @@ class Generator {
         this.connected.add(key);
       }
 
-      // Carve the entrance passage out of the room wall.
-      for (let x = 0; x < 3; x++) {
-        const r = sill.sill_r + DI[sill.dir] * x;
-        const c = sill.sill_c + DJ[sill.dir] * x;
-        this.cell[r][c] &= ~PERIMETER;
-        this.cell[r][c] |= ENTRANCE;
-      }
-
-      const type = this.doorType();
-      const meta = DOOR_META[type];
-      this.cell[sill.door_r][sill.door_c] &= ~ESPACE_CLEAR;
-      this.cell[sill.door_r][sill.door_c] |= meta.flag;
-
-      const door: Door = {
-        row: sill.door_r,
-        col: sill.door_c,
-        type,
-        roomId: room.id,
-        dir: sill.dir,
-        outId: sill.out_id,
-        key: meta.key,
-        desc: meta.desc,
-      };
-      room.doors.push(door);
-      this.doors.push(door);
+      this.placeDoor(room, sill);
       placed++;
     }
+  }
+
+  // Carves the entrance passage out of the room wall and hangs a door in it.
+  private placeDoor(room: Room, sill: Sill): Door {
+    for (let x = 0; x < 3; x++) {
+      const r = sill.sill_r + DI[sill.dir] * x;
+      const c = sill.sill_c + DJ[sill.dir] * x;
+      this.cell[r][c] &= ~PERIMETER;
+      this.cell[r][c] |= ENTRANCE;
+    }
+
+    const type = this.doorType();
+    const meta = DOOR_META[type];
+    this.cell[sill.door_r][sill.door_c] &= ~ESPACE_CLEAR;
+    this.cell[sill.door_r][sill.door_c] |= meta.flag;
+
+    const door: Door = {
+      row: sill.door_r,
+      col: sill.door_c,
+      type,
+      roomId: room.id,
+      dir: sill.dir,
+      outId: sill.out_id,
+      key: meta.key,
+      desc: meta.desc,
+    };
+    room.doors.push(door);
+    this.doors.push(door);
+    return door;
   }
 
   private allocOpens(room: Room): number {
@@ -466,6 +477,165 @@ class Generator {
   private doorType(): DoorType {
     const table = DOOR_WEIGHTS[this.opt.door_set] ?? DOOR_WEIGHTS.Standard;
     return this.rng.weighted(table) as DoorType;
+  }
+
+  // - - - five-room dungeon - - -
+
+  // Lays out one of the topologies from fiveroom.ts: each node gets its own
+  // slot on a coarse grid so rooms never collide, each edge gets a corridor,
+  // and the node index decides which story beat the room carries.
+  private buildFiveRoom() {
+    const topo = this.rng.pick(TOPOLOGIES);
+    this.topology = topo.name;
+
+    const gridW = Math.max(...topo.nodes.map(([gx]) => gx)) + 1;
+    const gridH = Math.max(...topo.nodes.map(([, gy]) => gy)) + 1;
+    const slotW = Math.floor(this.n_j / gridW);
+    const slotH = Math.floor(this.n_i / gridH);
+    const offJ = Math.floor((this.n_j - slotW * gridW) / 2);
+    const offI = Math.floor((this.n_i - slotH * gridH) / 2);
+
+    const base = ROOM_SIZE[this.opt.room_size] ?? ROOM_SIZE.Medium;
+    // Leave at least one free room-unit of slot for the corridor lattice.
+    const fit = (want: number, slot: number) =>
+      Math.max(1, Math.min(want, slot - 2));
+
+    const placed: (Room | undefined)[] = topo.nodes.map(([gx, gy], node) => {
+      const height = fit(base.size + this.rng.int(base.radix + 1), slotH);
+      const width = fit(base.size + this.rng.int(base.radix + 1), slotW);
+      const i = offI + gy * slotH + Math.floor((slotH - height) / 2);
+      const j = offJ + gx * slotW + Math.floor((slotW - width) / 2);
+      const before = this.rooms.length;
+      this.emplaceRoom({ i, j, height, width });
+      const room = this.rooms[before];
+      if (room) room.role = roleFor(node);
+      return room;
+    });
+
+    for (const [a, b] of topo.edges) {
+      const roomA = placed[a];
+      const roomB = placed[b];
+      if (roomA && roomB) this.connectRooms(roomA, roomB);
+    }
+  }
+
+  // Punches a door in each room facing the other, then tunnels between them.
+  private connectRooms(a: Room, b: Room) {
+    const from = this.punchDoor(a, b);
+    const to = this.punchDoor(b, a);
+    if (from && to) this.carvePath(from, to);
+  }
+
+  /** Opens a door on the wall of `room` facing `target`; returns the cell outside it. */
+  private punchDoor(room: Room, target: Room): Cell | null {
+    const dr = midpoint(target.north, target.south) - midpoint(room.north, room.south);
+    const dc = midpoint(target.east, target.west) - midpoint(room.west, room.east);
+    const vert: Dir = dr < 0 ? "north" : "south";
+    const horiz: Dir = dc < 0 ? "west" : "east";
+    // Prefer the wall facing the target along its dominant axis.
+    const order: Dir[] =
+      Math.abs(dr) >= Math.abs(dc)
+        ? [vert, horiz, opposite(horiz), opposite(vert)]
+        : [horiz, vert, opposite(vert), opposite(horiz)];
+
+    for (const dir of order) {
+      const sill = this.bestSill(room, dir, target);
+      if (!sill) continue;
+      this.placeDoor(room, sill);
+      return {
+        r: sill.door_r + DI[dir],
+        c: sill.door_c + DJ[dir],
+      };
+    }
+    return null;
+  }
+
+  // The usable sill on `dir`'s wall that sits closest to the target room.
+  private bestSill(room: Room, dir: Dir, target: Room): Sill | null {
+    const sills: Sill[] = [];
+    if (dir === "north" || dir === "south") {
+      const r = dir === "north" ? room.north : room.south;
+      if (dir === "north" ? r < 3 : r > this.max_row - 3) return null;
+      for (let c = room.west; c <= room.east; c += 2) {
+        const s = this.checkSill(room, r, c, dir);
+        if (s) sills.push(s);
+      }
+    } else {
+      const c = dir === "west" ? room.west : room.east;
+      if (dir === "west" ? c < 3 : c > this.max_col - 3) return null;
+      for (let r = room.north; r <= room.south; r += 2) {
+        const s = this.checkSill(room, r, c, dir);
+        if (s) sills.push(s);
+      }
+    }
+    if (!sills.length) return null;
+
+    const tr = midpoint(target.north, target.south);
+    const tc = midpoint(target.west, target.east);
+    let best = sills[0];
+    let bestD = Infinity;
+    for (const s of sills) {
+      const d = Math.abs(s.sill_r - tr) + Math.abs(s.sill_c - tc);
+      if (d < bestD) {
+        bestD = d;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  // Shortest corridor between two cells, hopping the odd lattice and refusing
+  // to cut through rooms or their walls. Existing corridors are reused, which
+  // is what turns loop topologies into real junctions.
+  private carvePath(from: Cell, to: Cell) {
+    const width = this.n_cols + 1;
+    const key = (r: number, c: number) => r * width + c;
+    const prev = new Map<number, number>();
+    const seen = new Set<number>([key(from.r, from.c)]);
+    const queue: Cell[] = [from];
+    let found = false;
+
+    while (queue.length) {
+      const cur = queue.shift()!;
+      if (cur.r === to.r && cur.c === to.c) {
+        found = true;
+        break;
+      }
+      for (const dir of DIRS) {
+        const mr = cur.r + DI[dir];
+        const mc = cur.c + DJ[dir];
+        const nr = cur.r + DI[dir] * 2;
+        const nc = cur.c + DJ[dir] * 2;
+        if (nr < 1 || nc < 1 || nr > this.max_row - 1 || nc > this.max_col - 1)
+          continue;
+        if (seen.has(key(nr, nc))) continue;
+        const blocked = BLOCKED | ROOM | PERIMETER;
+        if (this.cell[mr][mc] & blocked) continue;
+        if (this.cell[nr][nc] & blocked) continue;
+        seen.add(key(nr, nc));
+        prev.set(key(nr, nc), key(cur.r, cur.c));
+        queue.push({ r: nr, c: nc });
+      }
+    }
+    if (!found) return;
+
+    // Walk back from the target, carrying the corridor through the mid-cells.
+    let at = key(to.r, to.c);
+    const start = key(from.r, from.c);
+    this.dig(to.r, to.c);
+    while (at !== start) {
+      const back = prev.get(at)!;
+      const [r, c] = [Math.floor(at / width), at % width];
+      const [pr, pc] = [Math.floor(back / width), back % width];
+      this.dig((r + pr) / 2, (c + pc) / 2);
+      this.dig(pr, pc);
+      at = back;
+    }
+  }
+
+  private dig(r: number, c: number) {
+    this.cell[r][c] &= ~(ENTRANCE | PERIMETER);
+    this.cell[r][c] |= CORRIDOR;
   }
 
   // - - - corridors (maze tunnelling) - - -
@@ -545,6 +715,10 @@ class Generator {
   // - - - stairs - - -
 
   private emplaceStairs() {
+    if (this.opt.dungeon_layout === "FiveRoom") {
+      this.emplaceBeatStairs();
+      return;
+    }
     const count = this.opt.add_stairs === "Many" ? this.rng.range(3, 6) : 2;
     const ends = this.stairEnds();
     if (!ends.length) return;
@@ -562,6 +736,28 @@ class Generator {
       this.cell[end.row][end.col] |= down ? STAIR_DN : STAIR_UP;
       this.stairs.push(stair);
     }
+  }
+
+  // The way in and the way onward. Five-room corridors run room to room with
+  // no dead ends, so the stairs go in the beats that mean something instead.
+  private emplaceBeatStairs() {
+    const place = (role: RoomRole, key: "up" | "down") => {
+      const room = this.rooms.find((r) => r.role === role);
+      if (!room) return;
+      const up = key === "up";
+      const row = up ? room.north : room.south;
+      const col = up ? room.west : room.east;
+      this.cell[row][col] |= up ? STAIR_UP : STAIR_DN;
+      this.stairs.push({
+        row,
+        col,
+        next_row: row + (up ? 1 : -1),
+        next_col: col,
+        key,
+      });
+    };
+    place("Entrance", "up");
+    place("Resolution", "down");
   }
 
   private stairEnds(): Stair[] {
@@ -593,10 +789,12 @@ class Generator {
   // with a clear cell to step onto.
   private checkStairEnd(r: number, c: number, dir: Dir): boolean {
     // Only the given direction may be open; the other three must be closed.
+    // Doors count as open, or a stair lands in the corridor just outside one
+    // and blocks the way through.
     for (const d of DIRS) {
       const nr = r + DI[d];
       const nc = c + DJ[d];
-      const open = !!(this.cell[nr]?.[nc] & OPENSPACE);
+      const open = !!(this.cell[nr]?.[nc] & (OPENSPACE | DOORSPACE));
       if (d === dir && !open) return false;
       if (d !== dir && open) return false;
     }
@@ -606,7 +804,12 @@ class Generator {
   // - - - cleanup - - -
 
   private cleanDungeon() {
-    const pct = DEADEND_PCT[this.opt.remove_deadends] ?? 0;
+    // Five-room corridors are the story structure; collapsing them would sever
+    // beats from each other, so dead-end removal is skipped there.
+    const pct =
+      this.opt.dungeon_layout === "FiveRoom"
+        ? 0
+        : (DEADEND_PCT[this.opt.remove_deadends] ?? 0);
     if (pct) this.collapseTunnels(pct);
     this.fixDoors();
     this.emptyBlocks();
@@ -774,6 +977,21 @@ interface RoomProto {
   height: number;
   width: number;
 }
+
+interface Cell {
+  r: number;
+  c: number;
+}
+
+const midpoint = (a: number, b: number) => (a + b) / 2;
+
+const OPPOSITE: Record<Dir, Dir> = {
+  north: "south",
+  south: "north",
+  west: "east",
+  east: "west",
+};
+const opposite = (dir: Dir): Dir => OPPOSITE[dir];
 
 interface Sill {
   sill_r: number;

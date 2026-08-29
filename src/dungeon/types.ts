@@ -23,6 +23,7 @@ export type DungeonLayout =
   | "Hexagon"
   | "Round"
   | "Nexus"
+  | "FiveRoom"
   | "Cavernous";
 
 export type RoomLayout = "Sparse" | "Scattered" | "Dense" | "Symmetric";
@@ -82,6 +83,7 @@ export interface DungeonOptions {
 
 export interface Room {
   id: number;
+  role?: RoomRole; // five-room dungeons only: the story beat this room carries
   row: number; // top cell (grid coords)
   col: number; // left cell (grid coords)
   north: number;
@@ -103,6 +105,14 @@ export type DoorType =
   | "portc";
 
 export type Dir = "north" | "south" | "west" | "east";
+
+export type RoomRole =
+  | "Entrance"
+  | "Puzzle"
+  | "Setback"
+  | "Climax"
+  | "Resolution"
+  | "Junction";
 
 export interface Door {
   row: number;
@@ -133,4 +143,5 @@ export interface Dungeon {
   rooms: Room[];
   doors: Door[];
   stairs: Stair[];
+  topology?: string; // five-room dungeons only: the shape the rooms were laid out in
 }

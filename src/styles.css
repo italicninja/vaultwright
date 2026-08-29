@@ -332,6 +332,32 @@ input[type="range"] {
   color: var(--accent);
   margin-bottom: 8px;
 }
+.room-role {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  vertical-align: middle;
+}
+.room-beat {
+  margin-bottom: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.room-beat p {
+  margin: 2px 0;
+}
+.beat-purpose {
+  font-family: Georgia, serif;
+  font-style: italic;
+  color: var(--muted);
+}
 .entry {
   margin-bottom: 8px;
   font-size: 13px;

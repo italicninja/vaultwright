@@ -397,6 +397,85 @@ export const CORNERS = [
 ];
 export const SIDES = ["north side", "south side", "east side", "west side"];
 
+// - - - five-room dungeon beats - - -
+
+// The five-act structure John Four wrote up as the five-room dungeon. The
+// "purpose" is what the beat is for; the guises are ways of playing it, so the
+// entrance is not always a fight and the puzzle is not always a puzzle. The
+// setback in particular can land as a false victory as easily as a false
+// defeat, which flips the tone of everything around it.
+
+export interface BeatDef {
+  purpose: string;
+  guises: string[];
+}
+
+export const FIVE_ROOM_BEATS: Record<string, BeatDef> = {
+  Entrance: {
+    purpose: "The way in, and the promise of what waits deeper.",
+    guises: [
+      "Guardian at the gate: something here has been left to keep visitors out",
+      "A threshold ritual: the way opens only for those who pay it some courtesy",
+      "A warning left by the last party through, still legible if anyone reads it",
+      "An obstacle of rusted iron and settled stone, more work than danger",
+      "A parley: whatever holds the door would rather talk first",
+      "An open, unguarded door, which is its own kind of warning",
+    ],
+  },
+  Puzzle: {
+    purpose: "A problem that cannot be solved by hitting it.",
+    guises: [
+      "A mechanism that must be understood before it will give up the way on",
+      "A negotiation with something that knows more about this place than the party does",
+      "A riddle scratched into the stone, answered somewhere else in the dungeon",
+      "A choice with no safe option, only a cheaper one",
+      "A search: the way on is here, but not where anyone would look",
+      "A test of nerve rather than wit, and it knows the difference",
+    ],
+  },
+  Setback: {
+    purpose: "The turn. A false victory or a false defeat, either way the ground shifts.",
+    guises: [
+      "False victory: the obstacle folds far too easily, and something is worse for it",
+      "False defeat: the party loses ground here, and that loss is the way forward",
+      "An ambush sprung by whatever has been following since the entrance",
+      "The way back closes, and the dungeon stops being optional",
+      "A betrayal: something the party trusted turns, or was never what it claimed",
+      "The stakes are revealed to be larger, and the clock starts running",
+    ],
+  },
+  Climax: {
+    purpose: "The confrontation everything so far has been paying for.",
+    guises: [
+      "The thing that owns this place, met on ground it chose",
+      "A confrontation the party could talk their way through, if anyone tries",
+      "Two sides fighting over the prize, and the party gets to decide who wins",
+      "A fight against the clock rather than against hit points",
+      "The obstacle from the entrance again, grown into its full strength",
+      "A ritual in progress that has to be stopped where it stands",
+    ],
+  },
+  Resolution: {
+    purpose: "The payoff. Loot, an answer, an ally, or a way out.",
+    guises: [
+      "The hoard, and the mundane trouble of carrying it home",
+      "An answer to the question the party came in with",
+      "A survivor who owes them, and knows the way out",
+      "A door to somewhere the party could not have reached before",
+      "Proof of what happened here, worth more to the right buyer than gold is",
+      "Quiet, and the first safe place to rest since the entrance",
+    ],
+  },
+  Junction: {
+    purpose: "A hall between beats, carrying no part of the story on its own.",
+    guises: [
+      "A crossing hall that everything else in this place opens onto",
+      "A junction worn smooth by traffic that has not passed in a long time",
+      "A waypoint, useful mainly for working out where the party has not been yet",
+    ],
+  },
+};
+
 // - - - traps - - -
 
 export interface TrapDef {

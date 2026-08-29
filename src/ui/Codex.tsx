@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Dungeon } from "../dungeon/types";
+import { TOPOLOGIES } from "../dungeon/fiveroom";
 import type { DungeonContent, RoomContent } from "../content/stock";
 
 export function Codex({
@@ -36,6 +37,14 @@ export function Codex({
           <div className="codex-theme-label">Theme</div>
           <p>{theme}</p>
         </div>
+
+        {content.topology && (
+          <Structure
+            dungeon={dungeon}
+            topology={content.topology}
+            onSelectRoom={onSelectRoom}
+          />
+        )}
 
         <Section title="General">
           <Row label="History">{general.history}</Row>
@@ -97,7 +106,17 @@ function RoomBlock({
 }) {
   return (
     <>
-      <div className="room-head">Room #{room.id}</div>
+      <div className="room-head">
+        Room #{room.id}
+        {room.beat && <span className="room-role">{room.beat.role}</span>}
+      </div>
+
+      {room.beat && (
+        <div className="room-beat">
+          <p className="beat-purpose">{room.beat.purpose}</p>
+          <p>{room.beat.guise}</p>
+        </div>
+      )}
 
       {room.entries.map((e, i) => (
         <div className="entry" key={i}>
@@ -171,6 +190,40 @@ function RoomBlock({
       )}
 
       {room.empty && <div className="room-empty">Empty</div>}
+    </>
+  );
+}
+
+// The five-room structure: which shape the beats were laid out in, and which
+// room carries each one.
+function Structure({
+  dungeon,
+  topology,
+  onSelectRoom,
+}: {
+  dungeon: Dungeon;
+  topology: string;
+  onSelectRoom: (id: number) => void;
+}) {
+  const shape = TOPOLOGIES.find((t) => t.name === topology);
+  const beats = dungeon.rooms.filter((r) => r.role && r.role !== "Junction");
+  return (
+    <>
+      <div className="codex-theme">
+        <div className="codex-theme-label">Five Room Structure</div>
+        <p>
+          {topology}. {shape?.note}
+        </p>
+      </div>
+      <Section title="Beats">
+        {beats.map((room) => (
+          <Row key={room.id} label={room.role!}>
+            <button className="room-link" onClick={() => onSelectRoom(room.id)}>
+              Room #{room.id}
+            </button>
+          </Row>
+        ))}
+      </Section>
     </>
   );
 }

@@ -5,7 +5,7 @@
 
 import { RNG } from "../dungeon/rng";
 import { CORRIDOR, ROOM, OPENSPACE, DOORSPACE } from "../dungeon/flags";
-import type { Dungeon, Door, Dir } from "../dungeon/types";
+import type { Dungeon, Door, Dir, RoomRole } from "../dungeon/types";
 import * as T from "./tables";
 import { THEMES } from "./themes";
 
@@ -33,8 +33,14 @@ export interface HiddenTreasure {
   trapLine?: string;
   contents: string;
 }
+export interface Beat {
+  role: RoomRole;
+  purpose: string;
+  guise: string;
+}
 export interface RoomContent {
   id: number;
+  beat?: Beat;
   entries: DoorEntry[];
   feature?: string;
   monster?: string;
@@ -52,6 +58,7 @@ export interface CorridorFeature {
 }
 export interface DungeonContent {
   theme: string;
+  topology?: string;
   general: {
     history: string;
     size: string;
@@ -87,7 +94,7 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     { full: string; short: string; count: number } | null
   >();
   for (const room of dungeon.rooms) {
-    monsters.set(room.id, rng.chance(0.55) ? genMonsterGroup(rng) : null);
+    monsters.set(room.id, rollMonster(rng, room.role));
   }
 
   // Pass 2: build the full writeups.
@@ -95,23 +102,48 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
   for (const room of dungeon.rooms) {
     const mon = monsters.get(room.id) ?? null;
     const entries = buildEntries(rng, dungeon, room.id, monsters);
+    const beat = room.role ? genBeat(rng, room.role) : undefined;
 
     const feature = rng.chance(0.6) ? genFeature(rng) : undefined;
-    const treasure =
-      mon && rng.chance(0.7) ? individualTreasure(rng, mon.count) : undefined;
+    const treasure = mon && rng.chance(beatTreasureOdds(room.role))
+      ? individualTreasure(rng, mon.count)
+      : undefined;
 
     let trap: string | undefined;
     let trick: string | undefined;
     let hidden: HiddenTreasure | undefined;
-    const special = rng.weighted({ none: 62, hidden: 18, trick: 10, trap: 10 });
-    if (special === "hidden") hidden = genHidden(rng);
-    else if (special === "trick") trick = genTrick(rng);
-    else if (special === "trap") trap = genTrapLine(rng);
+    // A story beat dictates its own centrepiece; anything else rolls for one.
+    switch (room.role) {
+      case "Puzzle":
+        trick = genTrick(rng);
+        break;
+      case "Setback":
+        trap = genTrapLine(rng);
+        break;
+      case "Climax":
+        if (rng.chance(0.4)) trick = genTrick(rng);
+        break;
+      case "Resolution":
+        hidden = genHidden(rng);
+        break;
+      default: {
+        const special = rng.weighted({
+          none: 62,
+          hidden: 18,
+          trick: 10,
+          trap: 10,
+        });
+        if (special === "hidden") hidden = genHidden(rng);
+        else if (special === "trick") trick = genTrick(rng);
+        else if (special === "trap") trap = genTrapLine(rng);
+      }
+    }
 
-    const empty = !feature && !mon && !trap && !trick && !hidden;
+    const empty = !beat && !feature && !mon && !trap && !trick && !hidden;
 
     rooms.set(room.id, {
       id: room.id,
+      beat,
       entries,
       feature,
       monster: mon?.full,
@@ -123,8 +155,42 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     });
   }
 
-  return { theme, general, corridorFeatures, wanderingMonsters, rooms };
+  return {
+    theme,
+    topology: dungeon.topology,
+    general,
+    corridorFeatures,
+    wanderingMonsters,
+    rooms,
+  };
 }
+
+// - - - five-room beats - - -
+
+function genBeat(rng: RNG, role: RoomRole): Beat {
+  const def = T.FIVE_ROOM_BEATS[role];
+  return { role, purpose: def.purpose, guise: rng.pick(def.guises) };
+}
+
+// The climax always has something to fight; the quieter beats usually do not.
+function rollMonster(rng: RNG, role?: RoomRole) {
+  switch (role) {
+    case "Climax":
+      return genMonsterGroup(rng, true);
+    case "Setback":
+      return rng.chance(0.6) ? genMonsterGroup(rng) : null;
+    case "Entrance":
+      return rng.chance(0.5) ? genMonsterGroup(rng) : null;
+    case "Puzzle":
+    case "Resolution":
+      return rng.chance(0.2) ? genMonsterGroup(rng) : null;
+    default:
+      return rng.chance(0.55) ? genMonsterGroup(rng) : null;
+  }
+}
+
+// Whatever the climax is guarding, it is carrying some of it.
+const beatTreasureOdds = (role?: RoomRole) => (role === "Climax" ? 1 : 0.7);
 
 // - - - general / theme - - -
 
@@ -314,17 +380,20 @@ function difficulty(rawXp: number, count: number): string {
   return "easy";
 }
 
-function genMonsterGroup(rng: RNG): {
+function genMonsterGroup(
+  rng: RNG,
+  boss = false,
+): {
   full: string;
   short: string;
   count: number;
 } {
-  if (rng.chance(0.18)) {
+  if (boss || rng.chance(0.18)) {
     const pair = rng.pick(T.LEADER_PAIRS);
     const leader = T.LEADERS[pair.leader];
     const minion = MON_BY_NAME.get(pair.minion);
     if (leader && minion) {
-      const minionCount = rng.range(1, 3);
+      const minionCount = boss ? rng.range(3, 6) : rng.range(1, 3);
       const raw = leader.xp + minionCount * minion.xp;
       const count = 1 + minionCount;
       const diff = difficulty(raw, count);
