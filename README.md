@@ -1,6 +1,12 @@
 # Vaultwright
 
-A modern, **fully client-side** remake of [donjon's classic 5e dungeon
+A set of **fully client-side** D&D 5e tools. The landing page (`#/`) lists the
+toolkit; each tool lives behind a hash route (`#/dungeon`). Only the dungeon
+generator is built so far — the other cards are placeholders.
+
+## Dungeon Generator (`#/dungeon`)
+
+A modern remake of [donjon's classic 5e dungeon
 generator](https://donjon.bin.sh/5e/dungeon/), built with **Vite + React +
 TypeScript**.
 
