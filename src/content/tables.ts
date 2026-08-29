@@ -1,5 +1,9 @@
 // Flavor tables that drive the dungeon "stocking" content. Kept deliberately
 // broad rather than exhaustive, enough variety to feel hand-stocked.
+//
+// Some entries are adapted from the community tables published on
+// r/BehindTheTables (https://www.reddit.com/r/BehindTheTables/wiki/index/):
+// Basic Dungeons, Dungeon Dressing, Temples, Tombs and Castle Dungeons.
 
 export interface Monster {
   name: string;
@@ -88,6 +92,15 @@ export const CREATORS = [
   "an exiled noble house",
   "a circle of druids",
   "a guild of assassins",
+  "an ancient elvish prince",
+  "a dark sorceress",
+  "a foreign empire",
+  "an ambitious queen of old",
+  "a company of prosperous merchants",
+  "a powerful noble family",
+  "a sect of religious zealots",
+  "an ancient race of giants",
+  "a tyrannical king of old",
 ];
 export const CREATOR_PURPOSE = [
   "a stronghold",
@@ -98,6 +111,11 @@ export const CREATOR_PURPOSE = [
   "a laboratory",
   "a treasure vault",
   "a refuge",
+  "a lair",
+  "a palace",
+  "a storage vault",
+  "a sewer",
+  "a maze",
 ];
 export const CREATOR_FATE = [
   "were destroyed by a terrible discovery",
@@ -115,6 +133,16 @@ export const SINCE = [
   "a series of would-be conquerors have left their mark",
   "it has slowly filled with the detritus of failed expeditions",
   "nature has begun to reclaim its silent halls",
+  "a dangerous outlaw has since made a hideout of it",
+  "an elemental lord now holds court in its depths",
+  "a vampire has since claimed it for a lair",
+  "a lich has taken the lower halls for its own",
+  "a demon was bound here and never left",
+  "an orc warlord has since seized it as a seat of power",
+  "a hobgoblin commander garrisons it now",
+  "an aberrant presence has settled into its deepest rooms",
+  "a witch has moved into its ruined chambers",
+  "a dragon has coiled itself around what remains of the treasure",
 ];
 
 export const WALLS = [
@@ -138,6 +166,7 @@ export const ILLUMINATION = [
   "Dimly lit by phosphorescent fungus",
   "Dimly lit by guttering torches",
   "Brightly lit by everburning braziers",
+  "Lit only by distant torchlight from an adjoining chamber",
 ];
 
 // - - - corridor features - - -
@@ -155,6 +184,26 @@ export const CORRIDOR_FLAVOR = [
   "Faded murals cover the walls",
   "Cobwebs choke the passage from floor to ceiling",
   "Scratch marks score the stone floor",
+  "A slight damp breeze moves through the passage",
+  "A strong wind moans down the corridor",
+  "A sudden downdraft pushes through from above",
+  "The air here is still and very chill",
+  "An acrid chemical smell hangs in the air",
+  "A dank, mouldy smell fills the passage",
+  "A sulphurous reek drifts up the corridor",
+  "The stale, fetid air here is hard to breathe",
+  "Footsteps echo somewhere ahead",
+  "Footsteps recede into the dark behind you",
+  "Faint giggling comes from somewhere nearby",
+  "Distant chanting rises and falls",
+  "Something scratches and scrabbles behind the walls",
+  "A slow dripping echoes from further along",
+  "Chains rattle somewhere out of sight",
+  "A distant gong sounds once, then falls silent",
+  "Rubble and dirt cover the floor here",
+  "A slimy coating covers the walls",
+  "Dry leaves and twigs have drifted into the passage",
+  "A large puddle of standing water spans the passage",
 ];
 
 // - - - room features - - -
@@ -172,6 +221,18 @@ export const ROOM_PURPOSE = [
   "a torture chamber",
   "a shrine",
   "a barracks",
+  "a crypt",
+  "a chapel",
+  "a guardroom",
+  "a library",
+  "a mortuary",
+  "an infirmary",
+  "a workshop",
+  "a stable",
+  "a dining hall",
+  "a robing room",
+  "an interrogation room",
+  "a cell block",
 ];
 export const ROOM_PURPOSE_DETAIL: Record<string, string[]> = {
   "an armory": [
@@ -215,11 +276,46 @@ export const ROOM_PURPOSE_DETAIL: Record<string, string[]> = {
   "a barracks": [
     "Rows of rotten bunks line the walls, and a rack of rusted weapons has collapsed across the floor.",
   ],
+  "a crypt": [
+    "A gilded sarcophagus lies open along the far wall, and a plaque beside it lists a family lineage no one has read in centuries.",
+    "A simple stone sarcophagus stands at the center, its lid marked with dates in a script no longer spoken.",
+  ],
+  "a chapel": [
+    "A small altar is set into an alcove in the wall, and a sconce still holds the stubs of several candles.",
+    "A wide fresco of some mythological scene covers the far wall, defaced at the head of every figure.",
+  ],
+  "a guardroom": [
+    "Empty manacles hang along one wall, and a wooden door reinforced with steel bands lies splintered off its hinges.",
+  ],
+  "a library": [
+    "Rotted shelving lines the walls, and a huge book of sacred texts lies open on a lectern, its pages fused into a solid block.",
+  ],
+  "a mortuary": [
+    "A slab of stained stone dominates the room, and the scent of decaying flesh has never quite left it.",
+  ],
+  "an infirmary": [
+    "Rows of rotted cots line the walls, and shattered clay jars litter the floor where a dispensary once stood.",
+  ],
+  "a workshop": [
+    "Racks of embalming tools hang above a workbench, most of them rusted into a single mass.",
+  ],
+  "a stable": [
+    "Iron rings are set into the walls at waist height, and the floor is thick with ancient straw and dung.",
+  ],
+  "a dining hall": [
+    "A long banquet table has collapsed at the center of the room, and an ornamental rug beneath it has rotted to threads.",
+  ],
+  "a robing room": [
+    "Robes and cassocks still hang on hooks along the wall, stiff with age and grey with dust.",
+  ],
+  "an interrogation room": [
+    "A single chair is bolted to the floor beneath an empty sconce, and the stone around it is dark with old stains.",
+  ],
+  "a cell block": [
+    "Steel bars stand where you expected a stone wall, and a passage runs past a row of cells, every door hanging open.",
+  ],
 };
-export const ROOM_AGE = [
-  "might once have been",
-  "might have been",
-];
+export const ROOM_AGE = ["might once have been", "might have been"];
 export const ROOM_RUIN = [
   ", before the dungeon fell to ruin.",
   ", until recently.",
@@ -245,6 +341,30 @@ export const FEATURE_CLAUSE = [
   "jagged steel blades project from cracks in the north and south walls",
   "a pile of iron blobs lies in the north side of the room",
   "the floor is covered in square tiles, alternating white and black",
+  "a small altar is set into an alcove in the wall",
+  "empty manacles hang from the wall",
+  "a wall sconce holds the stubs of many candles",
+  "an empty sconce juts from the wall where a torch should be",
+  "a mosaic is set into the floor of the room",
+  "a plaque on the wall lists a family lineage",
+  "an ornate oil lamp lies on its side, long dry",
+  "a gilded sarcophagus stands against the far wall",
+  "an empty coffin lies open in the middle of the floor",
+  "dust lies thick and undisturbed over everything",
+  "rubble and dirt are heaped against the walls",
+  "a slimy coating covers the ceiling",
+  "dried blood is smeared across the flagstones",
+  "a broken bottle and a torn sack lie discarded in a corner",
+  "the splintered haft of a pick leans against the wall",
+  "a rusted iron bar has been bent nearly double",
+  "a badly dented helmet lies where it was dropped",
+  "scattered teeth and fangs crunch underfoot",
+  "a rotten length of rope trails across the floor",
+  "a small puddle of water has gathered in a crack in the floor",
+  "guano coats the floor beneath a crack in the ceiling",
+  "common fungi sprout from the damp corners",
+  "a torch stub lies in a blob of hardened wax",
+  "scratchings cover the wall at shoulder height",
 ];
 export const GRAFFITI = [
   "Alotel died here, her luck ran out before her arrows",
@@ -328,7 +448,8 @@ export const TRAPS: TrapDef[] = [
     find: [10, 15],
     disable: [10, 15],
     area: "attack",
-    effect: (_dc, d) => `+${3 + d * 2} to hit against one target, ${d}d10 cold damage`,
+    effect: (_dc, d) =>
+      `+${3 + d * 2} to hit against one target, ${d}d10 cold damage`,
   },
   {
     name: "Arrow Trap",

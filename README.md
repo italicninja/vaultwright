@@ -77,6 +77,11 @@ src/
 
 ## Credits
 
+Parts of the flavor tables in `src/content/tables.ts` are adapted from the
+community random tables published on
+[r/BehindTheTables](https://www.reddit.com/r/BehindTheTables/wiki/index/):
+Basic Dungeons, Dungeon Dressing, Temples, Tombs and Castle Dungeons.
+
 The generation algorithm follows the approach documented by **drow** for the
 original donjon generator. Vaultwright is an independent, from-scratch
 reimplementation for the browser; the `reference/` folder holds the scraped
