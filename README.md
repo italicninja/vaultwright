@@ -2,7 +2,7 @@
 
 A set of **fully client-side** D&D 5e tools. The landing page (`#/`) lists the
 toolkit; each tool lives behind a hash route (`#/dungeon`). Only the dungeon
-generator is built so far — the other cards are placeholders.
+generator is built so far; the other cards are placeholders.
 
 ## Dungeon Generator (`#/dungeon`)
 
@@ -11,28 +11,28 @@ generator](https://donjon.bin.sh/5e/dungeon/), built with **Vite + React +
 TypeScript**.
 
 The original renders its maps on a Perl backend (`construct.cgi` /
-`preview.cgi`) — you send options, the server sends back an image. Vaultwright
+`preview.cgi`): you send options, the server sends back an image. Vaultwright
 instead ports the underlying generation algorithm to TypeScript so the entire
 dungeon is generated and drawn **in your browser**, with no server round-trip.
 
 ## Features
 
-- **Faithful algorithm** — rooms → doors → corridor maze → stairs → dead-end
+- **Faithful algorithm**: rooms → doors → corridor maze → stairs → dead-end
   removal, the same pipeline as the original.
-- **Deterministic seeds** — the same seed always reproduces the same dungeon.
+- **Deterministic seeds**: the same seed always reproduces the same dungeon.
 - **All the original controls:**
   - Dungeon size (Fine … Colossal, plus Custom cols × rows)
   - Dungeon layout: Square, Rectangle, Box, Cross, Dagger, Saltire, Keep,
     Hexagon, Round, **Nexus** (a large central chamber with labyrinthine arms
     sprawling out of it), and **Cavernous** (a cellular-automata cave)
   - Room layout (Sparse / Scattered / Dense / Symmetric) and room size
-  - Door sets (None / Basic / Secure / Standard / Deathtrap) — archways, doors,
+  - Door sets (None / Basic / Secure / Standard / Deathtrap): archways, doors,
     locked, trapped, secret, and portcullis
   - Corridor style (Labyrinth / Errant / Straight)
   - Dead-end removal (None / Some / All) and stairs
   - 15 map styles and Square / Hex / Vertical-Hex grids
 - **Canvas renderer** with door & stair glyphs, room numbers, and a legend.
-- **Stocked descriptions (the "Codex")** — click any room on the map to read a
+- **Stocked descriptions (the "Codex")**: click any room on the map to read a
   full writeup: an evocative **dungeon theme** (a d100-style headline concept),
   an overall theme (history, walls, floor, temperature, illumination), a
   corridor-feature key, a wandering-monster table, and per-room
@@ -71,7 +71,8 @@ src/
     options.ts      # control definitions + client-side name generator
     Codex.tsx       # description panel
     Legend.tsx
-  App.tsx           # the app shell / control panel
+  App.tsx             # landing page + hash router
+  DungeonGenerator.tsx # the generator shell / control panel
 ```
 
 ## Credits

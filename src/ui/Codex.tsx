@@ -65,7 +65,7 @@ export function Codex({
         </Section>
 
         <div className="codex-hint">
-          Click a room on the map — or a card below — to inspect it.
+          Click a room on the map, or a card below, to inspect it.
         </div>
 
         {roomIds.map((id) => {

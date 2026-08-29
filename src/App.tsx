@@ -3,7 +3,6 @@ import { DungeonGenerator } from "./DungeonGenerator";
 
 type Tool = {
   slug: string;
-  icon: string;
   name: string;
   blurb: string;
   Component?: ComponentType;
@@ -12,27 +11,23 @@ type Tool = {
 const TOOLS: Tool[] = [
   {
     slug: "dungeon",
-    icon: "🏰",
     name: "Dungeon Generator",
     blurb:
-      "Procedural 5e dungeons — rooms, corridors, doors, stairs and stocked room descriptions. Deterministic seeds, PNG export, all in your browser.",
+      "Procedural 5e dungeons: rooms, corridors, doors, stairs and stocked room descriptions. Deterministic seeds, PNG export, all in your browser.",
     Component: DungeonGenerator,
   },
   {
     slug: "encounter",
-    icon: "⚔️",
     name: "Encounter Builder",
     blurb: "Budget an encounter by party level and difficulty.",
   },
   {
     slug: "loot",
-    icon: "💰",
     name: "Treasure Hoard",
     blurb: "Roll individual treasure and hoards off the DMG tables.",
   },
   {
     slug: "npc",
-    icon: "🎭",
     name: "NPC Generator",
     blurb: "Names, traits, bonds and flaws for the tavern regulars.",
   },
@@ -60,7 +55,7 @@ function Home() {
         <h1>Vaultwright</h1>
         <p>
           Client-side tools for running 5e games. No accounts, no server, no
-          waiting — everything generates in your browser.
+          waiting. Everything generates in your browser.
         </p>
       </header>
 
@@ -89,7 +84,6 @@ function Home() {
 function ToolBody({ tool }: { tool: Tool }) {
   return (
     <>
-      <span className="tool-icon">{tool.icon}</span>
       <h2>{tool.name}</h2>
       <p>{tool.blurb}</p>
     </>

@@ -1,5 +1,5 @@
 // Deterministic seeded PRNG so a given seed always reproduces the same dungeon.
-// mulberry32 — fast, decent distribution, integer-seeded.
+// mulberry32: fast, decent distribution, integer-seeded.
 
 export class RNG {
   private state: number;

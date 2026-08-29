@@ -1,5 +1,5 @@
 // Flavor tables that drive the dungeon "stocking" content. Kept deliberately
-// broad rather than exhaustive — enough variety to feel hand-stocked.
+// broad rather than exhaustive, enough variety to feel hand-stocked.
 
 export interface Monster {
   name: string;
@@ -85,7 +85,7 @@ export const CREATORS = [
   "a death priest",
   "a cabal of necromancers",
   "a dragon of old",
-  "a exiled noble house",
+  "an exiled noble house",
   "a circle of druids",
   "a guild of assassins",
 ];

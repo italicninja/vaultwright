@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A modern, client-side 5e dungeon generator — a from-scratch remake of donjon's classic tool.",
+  "description": "Client-side D&D 5e tools, starting with a dungeon generator, a from-scratch remake of donjon's classic tool.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -174,7 +174,7 @@ export function DungeonGenerator() {
           </label>
 
           <button className="primary-btn" onClick={randomDungeon}>
-            🎲 Random Dungeon
+            Random Dungeon
           </button>
         </div>
 
@@ -215,7 +215,7 @@ export function DungeonGenerator() {
 
         <div className="group">
           <label className="field">
-            <span>Cell Size — {cellSize}px</span>
+            <span>Cell Size: {cellSize}px</span>
             <input
               type="range"
               min={8}
@@ -225,7 +225,7 @@ export function DungeonGenerator() {
             />
           </label>
           <button className="primary-btn" onClick={downloadPng}>
-            ⬇ Download PNG
+            Download PNG
           </button>
         </div>
 

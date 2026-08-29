@@ -235,7 +235,7 @@ function genDoorDesc(
     const trapped = rng.chance(0.2);
     const base = iron
       ? "Iron Portcullis (DC 20 to lift, DC 25 to break; 60 hp)"
-      : "Wooden Portcullis (lift DC 20, DC 15 to break; 30 hp)";
+      : "Wooden Portcullis (DC 20 to lift, DC 15 to break; 30 hp)";
     const title = trapped ? `Trapped ${base}` : base;
     if (trapped) symbols.push({ sym: "Ⓣ", text: genTrapLine(rng) });
     return { title, symbols };

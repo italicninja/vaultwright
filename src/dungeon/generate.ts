@@ -1,4 +1,4 @@
-// Client-side dungeon generator — a faithful port of the algorithm behind
+// Client-side dungeon generator, a faithful port of the algorithm behind
 // donjon's classic generator (rooms → doors → corridor maze → stairs →
 // dead-end removal), extended with a cellular-automata mode for Cavernous.
 
@@ -669,7 +669,7 @@ class Generator {
         const openW = !!(this.cell[door.row]?.[door.col - 1] & OPENSPACE);
         const openE = !!(this.cell[door.row]?.[door.col + 1] & OPENSPACE);
         if (!((openN && openS) || (openW && openE))) {
-          // No longer bridges anything — demote the cell to nothing.
+          // No longer bridges anything; demote the cell to nothing.
           this.cell[door.row][door.col] &= ~DOORSPACE;
           continue;
         }
