@@ -401,80 +401,355 @@ export const SIDES = ["north side", "south side", "east side", "west side"];
 
 // The five-act structure John Four wrote up as the five-room dungeon. The
 // "purpose" is what the beat is for; the guises are ways of playing it, so the
-// entrance is not always a fight and the puzzle is not always a puzzle. The
-// setback in particular can land as a false victory as easily as a false
-// defeat, which flips the tone of everything around it.
+// entrance is not always a fight and the puzzle is not always a puzzle.
+//
+// Each guise is tagged combat or not, because the puzzle is meant to be the
+// opposite of the entrance: a fight at the door means a problem behind it, and
+// a riddle at the door means something waiting behind it with teeth. The
+// setback can land as a false victory as easily as a false defeat, which flips
+// the tone of everything around it.
 
+export interface Guise {
+  text: string;
+  combat: boolean;
+}
 export interface BeatDef {
   purpose: string;
-  guises: string[];
+  guises: Guise[];
 }
 
 export const FIVE_ROOM_BEATS: Record<string, BeatDef> = {
   Entrance: {
     purpose: "The way in, and the promise of what waits deeper.",
     guises: [
-      "Guardian at the gate: something here has been left to keep visitors out",
-      "A threshold ritual: the way opens only for those who pay it some courtesy",
-      "A warning left by the last party through, still legible if anyone reads it",
-      "An obstacle of rusted iron and settled stone, more work than danger",
-      "A parley: whatever holds the door would rather talk first",
-      "An open, unguarded door, which is its own kind of warning",
+      {
+        text: "Guardian at the gate: something was left here to keep visitors out, and it is still on duty",
+        combat: true,
+      },
+      {
+        text: "The door itself answers: touch it and something comes out of the walls",
+        combat: true,
+      },
+      {
+        text: "Scouts on the perimeter who have already seen the party coming",
+        combat: true,
+      },
+      {
+        text: "A threshold ritual: the way opens only for those who pay it some courtesy",
+        combat: false,
+      },
+      {
+        text: "A warning left by the last party through, still legible if anyone reads it",
+        combat: false,
+      },
+      {
+        text: "An obstacle of rusted iron and settled stone, more work than danger",
+        combat: false,
+      },
+      {
+        text: "A parley: whatever holds the door would rather talk first",
+        combat: false,
+      },
+      {
+        text: "An open, unguarded door, which is its own kind of warning",
+        combat: false,
+      },
     ],
   },
   Puzzle: {
-    purpose: "A problem that cannot be solved by hitting it.",
+    purpose:
+      "The counterweight to the entrance: whatever that was, this is the other thing.",
     guises: [
-      "A mechanism that must be understood before it will give up the way on",
-      "A negotiation with something that knows more about this place than the party does",
-      "A riddle scratched into the stone, answered somewhere else in the dungeon",
-      "A choice with no safe option, only a cheaper one",
-      "A search: the way on is here, but not where anyone would look",
-      "A test of nerve rather than wit, and it knows the difference",
+      {
+        text: "A mechanism that must be understood before it will give up the way on",
+        combat: false,
+      },
+      {
+        text: "A negotiation with something that knows more about this place than the party does",
+        combat: false,
+      },
+      {
+        text: "A riddle in a language nobody here should be able to read, and a price for reading it",
+        combat: false,
+      },
+      {
+        text: "A choice with no safe option, only a cheaper one",
+        combat: false,
+      },
+      {
+        text: "A search: the way on is here, but not where anyone would look",
+        combat: false,
+      },
+      {
+        text: "A wide open space with no cover, and the problem of crossing it",
+        combat: false,
+      },
+      {
+        text: "The guardian that should have been at the door, waiting one room in",
+        combat: true,
+      },
+      {
+        text: "Something that has to be fought quietly, because of what is in the next room",
+        combat: true,
+      },
+      {
+        text: "A caretaker who will not be reasoned with and will not leave its post",
+        combat: true,
+      },
     ],
   },
   Setback: {
-    purpose: "The turn. A false victory or a false defeat, either way the ground shifts.",
+    purpose:
+      "The turn, and where the meat of the dungeon is. It should cost the party something.",
     guises: [
-      "False victory: the obstacle folds far too easily, and something is worse for it",
-      "False defeat: the party loses ground here, and that loss is the way forward",
-      "An ambush sprung by whatever has been following since the entrance",
-      "The way back closes, and the dungeon stops being optional",
-      "A betrayal: something the party trusted turns, or was never what it claimed",
-      "The stakes are revealed to be larger, and the clock starts running",
+      {
+        text: "False victory: the obstacle folds far too easily, and something is worse for it",
+        combat: true,
+      },
+      {
+        text: "False defeat: the party loses ground here, and that loss is the way forward",
+        combat: true,
+      },
+      {
+        text: "An ambush that rises on all sides once the party is committed to the room",
+        combat: true,
+      },
+      {
+        text: "A betrayal: something the party trusted turns, or was never what it claimed",
+        combat: true,
+      },
+      {
+        text: "The hostages are the enemy, wearing the faces the party came to rescue",
+        combat: true,
+      },
+      {
+        text: "A one-way door: the way back closes, and the dungeon stops being optional",
+        combat: false,
+      },
+      {
+        text: "The stakes are revealed to be larger, and the clock starts running",
+        combat: false,
+      },
     ],
   },
   Climax: {
-    purpose: "The confrontation everything so far has been paying for.",
+    purpose: "The boss. Everything so far was paying for this.",
     guises: [
-      "The thing that owns this place, met on ground it chose",
-      "A confrontation the party could talk their way through, if anyone tries",
-      "Two sides fighting over the prize, and the party gets to decide who wins",
-      "A fight against the clock rather than against hit points",
-      "The obstacle from the entrance again, grown into its full strength",
-      "A ritual in progress that has to be stopped where it stands",
+      {
+        text: "The thing that owns this place, met on ground it chose",
+        combat: true,
+      },
+      {
+        text: "A charismatic villain who would rather talk the party around than fight them",
+        combat: true,
+      },
+      {
+        text: "Two sides fighting over the prize, and the party gets to decide who wins",
+        combat: true,
+      },
+      {
+        text: "A ritual most of the way finished, and the people finishing it",
+        combat: true,
+      },
+      {
+        text: "A fight against the clock rather than against hit points",
+        combat: true,
+      },
+      {
+        text: "The obstacle from the entrance again, grown into its full strength",
+        combat: true,
+      },
     ],
   },
   Resolution: {
-    purpose: "The payoff. Loot, an answer, an ally, or a way out.",
+    purpose: "The payoff, and the hook into whatever comes next.",
     guises: [
-      "The hoard, and the mundane trouble of carrying it home",
-      "An answer to the question the party came in with",
-      "A survivor who owes them, and knows the way out",
-      "A door to somewhere the party could not have reached before",
-      "Proof of what happened here, worth more to the right buyer than gold is",
-      "Quiet, and the first safe place to rest since the entrance",
+      {
+        text: "The hoard, and the mundane trouble of carrying it home",
+        combat: false,
+      },
+      {
+        text: "An answer to the question the party came in with",
+        combat: false,
+      },
+      {
+        text: "A survivor who owes them, and knows the way out",
+        combat: false,
+      },
+      {
+        text: "A door to somewhere the party could not have reached before",
+        combat: false,
+      },
+      {
+        text: "Proof of what happened here, worth more to the right buyer than gold is",
+        combat: false,
+      },
+      {
+        text: "Quiet, and the first safe place to rest since the entrance",
+        combat: false,
+      },
     ],
   },
   Junction: {
     purpose: "A hall between beats, carrying no part of the story on its own.",
     guises: [
-      "A crossing hall that everything else in this place opens onto",
-      "A junction worn smooth by traffic that has not passed in a long time",
-      "A waypoint, useful mainly for working out where the party has not been yet",
+      {
+        text: "A crossing hall that everything else in this place opens onto",
+        combat: false,
+      },
+      {
+        text: "A junction worn smooth by traffic that has not passed in a long time",
+        combat: false,
+      },
+      {
+        text: "A waypoint, useful mainly for working out where the party has not been yet",
+        combat: false,
+      },
     ],
   },
 };
+
+// A dungeon is any location an adventure happens in, so it does not have to be
+// a hole in the ground with vaulted ceilings.
+export const LOCATIONS = [
+  "a crypt under a chapel that was built to keep it shut",
+  "a windmill standing over a river that dried up a century ago",
+  "a merchant's mansion, sealed with the family still inside",
+  "a watchtower on a road nobody uses any more",
+  "a flooded mine with one dry level left",
+  "a lighthouse whose keeper stopped answering letters",
+  "a monastery library, its lower stacks bricked off",
+  "a bandit camp built into a collapsed amphitheatre",
+  "a sunken barge grounded in the reeds",
+  "a menagerie whose cages are mostly open",
+  "a foundry gone cold, the moulds still full",
+  "a courthouse where the cells outnumber the rooms",
+  "an aqueduct junction, half of it still running",
+  "the corpse of something enormous, now furnished",
+  "a greenhouse where the garden won and kept going",
+  "a caravanserai walled up from the inside",
+];
+
+// Who wants this done, and what they are actually paying for.
+export const PATRONS = [
+  "the local baron, who would rather this were quiet",
+  "a temple that will not say why it wants the place emptied",
+  "a guild that owns the deed and none of the keys",
+  "the last surviving heir, who has never been inside",
+  "a scholar with a map and no intention of walking in",
+  "the village itself, having taken up a collection",
+  "a rival who wants it looted before somebody else does",
+  "a magistrate settling an inheritance nobody wants",
+];
+export const COMMISSIONS = [
+  "clear it out and confirm what killed the last crew",
+  "recover one specific thing and leave the rest",
+  "find out what has been coming out of it at night",
+  "get proof of who has been using it, and bring that proof back",
+  "reach the bottom, whatever the bottom turns out to be",
+  "make it safe enough to sell",
+  "bring back whoever went in last week",
+];
+
+// The entrance has to answer the obvious question: why is this place still
+// full of treasure? Something kept everybody else out until now.
+export const SEALS = [
+  "the door was warded, and the ward has only just failed",
+  "the only key was buried with the person who locked it",
+  "everyone local knows better, and nobody local is talking",
+  "the way in was underwater until this season",
+  "the last crew through sealed it behind them on purpose",
+  "the entrance was hidden until recent digging exposed it",
+  "the thing on the threshold has turned back everyone before now",
+  "the ritual that opens it takes something nobody wanted to give",
+  "a rockfall closed it, and something has just cleared the rockfall",
+];
+
+// What the setback takes out of the party before the boss room.
+export const SETBACK_COSTS = [
+  "spell slots: this is where the casters spend the ones they were saving",
+  "hit points, and enough of them that resting starts to sound reasonable",
+  "time: whatever the party is racing gets a head start here",
+  "an item, broken or taken, that the party had been relying on",
+  "the retreat: whatever they wanted to fall back to is gone",
+  "trust, in whichever NPC came this far with them",
+];
+
+// Boss rooms are better when the room fights too.
+export const BATTLEFIELDS = [
+  "a raised dais the boss will not willingly step down from",
+  "waist-deep water that halves anyone who tries to charge",
+  "chandeliers and scaffolding worth cutting down",
+  "a pit across the middle that both sides have to respect",
+  "braziers that can be tipped, and will spread",
+  "rubble and broken pillars: difficult terrain, and cover for both sides",
+  "a ritual circle that hurts whoever stands in it, and matters anyway",
+  "three exits, and the boss knows which one leads out",
+];
+export const BOSS_TACTICS = [
+  "goes for the healer first and keeps going",
+  "grapples the front line and drags them out of formation",
+  "fights from range and spends minions to buy distance",
+  "targets whoever solved the puzzle room, having watched them do it",
+  "focuses whoever hits hardest, then withdraws when bloodied",
+  "never leaves the one piece of terrain that favours it",
+];
+export const BOSS_TWISTS = [
+  "wants a duel, and will honour it about as far as it has to",
+  "offers a bargain that is genuinely good, which is the problem",
+  "has a monologue with a point in it the party may start to agree with",
+  "is not the one in charge, and says so once things go badly",
+  "knows one of the party by name, and says it early",
+  "would surrender if anyone offered, and nobody usually does",
+];
+
+// The resolution is either the reward or the twist, and either way it should
+// leave a thread for next time.
+export const RESOLUTION_COMPLICATIONS = [
+  "the chest is a mimic, and it has been patient",
+  "the loot is warded and the ward is still live",
+  "the way out is not the way in, and it is not marked",
+  "something followed the party down and is between them and the door",
+  "the prize is too heavy to carry out in one trip",
+  "the survivor the party is escorting has their own errand here",
+];
+export const RESOLUTION_TWISTS = [
+  "the thing the boss was summoning arrives anyway, wearing the boss",
+  "the patron wanted this done for a reason nobody mentioned",
+  "the villain the party killed was the one holding something worse in place",
+  "the proof they came for names somebody the party trusts",
+  "one of the bodies here is wearing the party's own colours",
+  "the ritual did work, somewhere else, and the party is late",
+];
+export const HOOKS = [
+  "a map with a second site circled and no note explaining why",
+  "correspondence signed with a name and no title",
+  "a debt marker made out to somebody in the nearest town",
+  "a key that does not fit anything here",
+  "a survivor's account of where the rest of them went",
+  "a shipment manifest for goods that never arrived",
+  "an unfinished ritual with the last component missing",
+];
+
+// A piece to keep in your pocket: a name dropped now and cashed in years
+// later, the way a level-two curiosity becomes a level-thirteen boss fight.
+export const KEPT_NAMES = [
+  "the Screaming Mass",
+  "Cryptus, the Patient Wound",
+  "the Lady of Salt",
+  "the Third Signatory",
+  "Vaun of the Long Hunger",
+  "the Kindly Auditor",
+  "the Bell Beneath",
+  "Orrun, Who Was Owed",
+];
+export const KEPT_PROMISES = [
+  "whoever paid the price at the entrance is marked, and strangers will start noticing them",
+  "the name is spoken here once, like it is common knowledge, and never explained",
+  "something in this place was left as a message, and it was not left for the party",
+  "the cult here was a branch office, and the ledger says where the others are",
+  "an item leaves with the party that somebody is going to come asking about",
+];
 
 // - - - traps - - -
 

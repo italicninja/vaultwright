@@ -33,10 +33,23 @@ export interface HiddenTreasure {
   trapLine?: string;
   contents: string;
 }
+export interface BeatNote {
+  label: string;
+  text: string;
+}
 export interface Beat {
   role: RoomRole;
   purpose: string;
   guise: string;
+  combat: boolean;
+  notes: BeatNote[];
+}
+export interface Adventure {
+  topology: string;
+  location: string;
+  patron: string;
+  commission: string;
+  keeper: { name: string; promise: string };
 }
 export interface RoomContent {
   id: number;
@@ -59,6 +72,7 @@ export interface CorridorFeature {
 export interface DungeonContent {
   theme: string;
   topology?: string;
+  adventure?: Adventure;
   general: {
     history: string;
     size: string;
@@ -88,6 +102,11 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     return `${g.full}; ${rng.pick(T.MONSTER_ACTIVITY)}`;
   });
 
+  // Five-room dungeons carry an adventure brief and a beat per room, rolled
+  // before anything else so the beats can answer to each other.
+  const adventure = dungeon.topology ? genAdventure(rng, dungeon) : undefined;
+  const beats = dungeon.topology ? genBeats(rng, dungeon) : undefined;
+
   // Pass 1: roll each room's monster so "inhabited by" can be resolved.
   const monsters = new Map<
     number,
@@ -102,7 +121,7 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
   for (const room of dungeon.rooms) {
     const mon = monsters.get(room.id) ?? null;
     const entries = buildEntries(rng, dungeon, room.id, monsters);
-    const beat = room.role ? genBeat(rng, room.role) : undefined;
+    const beat = beats?.get(room.id);
 
     const feature = rng.chance(0.6) ? genFeature(rng) : undefined;
     const treasure = mon && rng.chance(beatTreasureOdds(room.role))
@@ -158,6 +177,7 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
   return {
     theme,
     topology: dungeon.topology,
+    adventure,
     general,
     corridorFeatures,
     wanderingMonsters,
@@ -167,9 +187,80 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
 
 // - - - five-room beats - - -
 
-function genBeat(rng: RNG, role: RoomRole): Beat {
-  const def = T.FIVE_ROOM_BEATS[role];
-  return { role, purpose: def.purpose, guise: rng.pick(def.guises) };
+// Beats are rolled together, before anything else, because they answer to each
+// other: the puzzle is deliberately the counterweight to the entrance.
+function genBeats(rng: RNG, dungeon: Dungeon): Map<number, Beat> {
+  const byRole = new Map<RoomRole, number>();
+  for (const room of dungeon.rooms) {
+    if (room.role && !byRole.has(room.role)) byRole.set(room.role, room.id);
+  }
+
+  const beats = new Map<number, Beat>();
+  const add = (role: RoomRole, guise: T.Guise, notes: BeatNote[] = []) => {
+    const id = byRole.get(role);
+    if (id === undefined) return;
+    beats.set(id, {
+      role,
+      purpose: T.FIVE_ROOM_BEATS[role].purpose,
+      guise: guise.text,
+      combat: guise.combat,
+      notes,
+    });
+  };
+  const guises = (role: RoomRole) => T.FIVE_ROOM_BEATS[role].guises;
+
+  const entrance = rng.pick(guises("Entrance"));
+  add("Entrance", entrance, [
+    { label: "Why it is still sealed", text: rng.pick(T.SEALS) },
+  ]);
+
+  // Whatever the door was, the room behind it is the other thing.
+  const opposite = guises("Puzzle").filter((g) => g.combat !== entrance.combat);
+  add("Puzzle", rng.pick(opposite.length ? opposite : guises("Puzzle")), [
+    {
+      label: "Counterweight",
+      text: entrance.combat
+        ? "The door was a fight, so this room is not: let the players who came for the story lead."
+        : "The door was not a fight, so this room has teeth: let the players who came to roll dice lead.",
+    },
+  ]);
+
+  add("Setback", rng.pick(guises("Setback")), [
+    { label: "What it costs", text: rng.pick(T.SETBACK_COSTS) },
+  ]);
+
+  add("Climax", rng.pick(guises("Climax")), [
+    { label: "Battlefield", text: rng.pick(T.BATTLEFIELDS) },
+    { label: "Tactics", text: `The boss ${rng.pick(T.BOSS_TACTICS)}.` },
+    { label: "Twist", text: `The boss ${rng.pick(T.BOSS_TWISTS)}.` },
+  ]);
+
+  // The resolution pays out or turns over, and either way leaves a thread.
+  const resolutionNotes: BeatNote[] = [];
+  if (rng.chance(0.4)) {
+    resolutionNotes.push({
+      label: "Twist",
+      text: `Hold this one back and spend it only if the boss went down too easily: ${rng.pick(T.RESOLUTION_TWISTS)}.`,
+    });
+  }
+  resolutionNotes.push(
+    { label: "Complication", text: rng.pick(T.RESOLUTION_COMPLICATIONS) },
+    { label: "Hook", text: `They leave with ${rng.pick(T.HOOKS)}.` },
+  );
+  add("Resolution", rng.pick(guises("Resolution")), resolutionNotes);
+
+  add("Junction", rng.pick(guises("Junction")));
+  return beats;
+}
+
+function genAdventure(rng: RNG, dungeon: Dungeon): Adventure {
+  return {
+    topology: dungeon.topology ?? "",
+    location: rng.pick(T.LOCATIONS),
+    patron: rng.pick(T.PATRONS),
+    commission: rng.pick(T.COMMISSIONS),
+    keeper: { name: rng.pick(T.KEPT_NAMES), promise: rng.pick(T.KEPT_PROMISES) },
+  };
 }
 
 // The climax always has something to fight; the quieter beats usually do not.

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { DungeonGenerator } from "./DungeonGenerator";
+import { FiveRoomDungeon } from "./FiveRoomDungeon";
 
 type Tool = {
   slug: string;
@@ -15,6 +16,13 @@ const TOOLS: Tool[] = [
     blurb:
       "Procedural 5e dungeons: rooms, corridors, doors, stairs and stocked room descriptions. Deterministic seeds, PNG export, all in your browser.",
     Component: DungeonGenerator,
+  },
+  {
+    slug: "fiveroom",
+    name: "Five Room Dungeon",
+    blurb:
+      "A whole session in five beats: entrance, puzzle, setback, climax, resolution. Map, brief, boss tactics and a hook into the next adventure.",
+    Component: FiveRoomDungeon,
   },
   {
     slug: "encounter",

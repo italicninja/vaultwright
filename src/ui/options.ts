@@ -42,7 +42,6 @@ export const FIELDS: OptionDef[] = [
         "Round",
         "Nexus",
       ]),
-      { value: "FiveRoom", text: "Five Room" },
       { value: "Cavernous" },
     ],
   },

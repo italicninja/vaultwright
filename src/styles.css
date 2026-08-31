@@ -353,6 +353,13 @@ input[type="range"] {
 .room-beat p {
   margin: 2px 0;
 }
+.beat-note-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+.keeper {
+  border-left-color: var(--accent-2);
+}
 .beat-purpose {
   font-family: Georgia, serif;
   font-style: italic;

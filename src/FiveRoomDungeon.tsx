@@ -1,19 +1,37 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { generate } from "./dungeon/generate";
 import { stockDungeon } from "./content/stock";
 import type { DungeonOptions } from "./dungeon/types";
 import { renderDungeon, measure, hitRoom } from "./render/draw";
 import { DEFAULT_OPTIONS, FIELDS, randomName } from "./ui/options";
 import { SelectField } from "./ui/SelectField";
+import { Brief } from "./ui/Brief";
 import { Legend } from "./ui/Legend";
-import { Codex } from "./ui/Codex";
 
 const MAX_SEED = 2147483647;
 const randInt = (n: number) => Math.floor(Math.random() * n);
 
-export function DungeonGenerator() {
+// The five-room layout drives everything here, so the map controls are only
+// the ones that still mean something for a single-session adventure.
+const CONTROLS: (keyof DungeonOptions)[] = [
+  "dungeon_size",
+  "room_size",
+  "door_set",
+  "map_style",
+  "grid",
+];
+
+const BASE: DungeonOptions = {
+  ...DEFAULT_OPTIONS,
+  dungeon_layout: "FiveRoom",
+  dungeon_size: "Small",
+  room_size: "Large",
+  add_stairs: "Yes",
+};
+
+export function FiveRoomDungeon() {
   const [options, setOptions] = useState<DungeonOptions>(() => ({
-    ...DEFAULT_OPTIONS,
+    ...BASE,
     seed: randInt(MAX_SEED),
     name: randomName(Math.random),
   }));
@@ -24,14 +42,7 @@ export function DungeonGenerator() {
   const dungeon = useMemo(() => generate(options), [options]);
   const content = useMemo(() => stockDungeon(dungeon), [dungeon]);
 
-  // A fresh dungeon clears the selection.
   useEffect(() => setSelectedRoom(null), [dungeon]);
-
-  const roomCount = dungeon.rooms.filter((room) => {
-    const cr = Math.round((room.north + room.south) / 2);
-    const cc = Math.round((room.west + room.east) / 2);
-    return !!dungeon.cell[cr]?.[cc];
-  }).length;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,19 +56,6 @@ export function DungeonGenerator() {
     });
   }, [dungeon, cellSize, options.grid, selectedRoom, content]);
 
-  const onCanvasClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const id = hitRoom(dungeon, px, py, cellSize);
-      setSelectedRoom((cur) => (id === cur ? null : id));
-    },
-    [dungeon, cellSize],
-  );
-
   const set = useCallback(
     <K extends keyof DungeonOptions>(key: K, value: DungeonOptions[K]) => {
       setOptions((prev) => ({ ...prev, [key]: value }));
@@ -65,39 +63,31 @@ export function DungeonGenerator() {
     [],
   );
 
-  const newSeed = useCallback(() => {
-    setOptions((prev) => ({ ...prev, seed: randInt(MAX_SEED) }));
-  }, []);
+  const onCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const id = hitRoom(
+        dungeon,
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        cellSize,
+      );
+      setSelectedRoom((cur) => (id === cur ? null : id));
+    },
+    [dungeon, cellSize],
+  );
 
-  const rerollName = useCallback(() => {
-    setOptions((prev) => ({ ...prev, name: randomName(Math.random) }));
-  }, []);
-
-  const randomDungeon = useCallback(() => {
-    setOptions((prev) => {
-      const next: DungeonOptions = { ...prev, seed: randInt(MAX_SEED) };
-      const randomize: (keyof DungeonOptions)[] = [
-        "dungeon_layout",
-        "peripheral_egress",
-        "room_layout",
-        "room_size",
-        "room_polymorph",
-        "door_set",
-        "corridor_layout",
-        "remove_deadends",
-        "add_stairs",
-      ];
-      for (const field of FIELDS) {
-        if (!randomize.includes(field.key)) continue;
-        const choices = field.options.filter((o) => o.value !== "Custom");
-        (next[field.key] as string) = choices[randInt(choices.length)].value;
-      }
-      return next;
-    });
+  const newAdventure = useCallback(() => {
+    setOptions((prev) => ({
+      ...prev,
+      seed: randInt(MAX_SEED),
+      name: randomName(Math.random),
+    }));
   }, []);
 
   const downloadPng = useCallback(() => {
-    // Render at a crisp fixed cell size to an offscreen canvas.
     const off = document.createElement("canvas");
     renderDungeon(off, dungeon, {
       cellSize: 24,
@@ -120,6 +110,7 @@ export function DungeonGenerator() {
   }, [dungeon, options.grid, options.name, options.seed, content]);
 
   const dims = measure(dungeon, cellSize);
+  const beats = dungeon.rooms.filter((r) => r.role && r.role !== "Junction");
 
   return (
     <div className="app">
@@ -128,13 +119,13 @@ export function DungeonGenerator() {
           <a className="back-link" href="#/">
             ← All tools
           </a>
-          <h1>Dungeon Generator</h1>
+          <h1>Five Room Dungeon</h1>
           <p className="tagline">Vaultwright</p>
         </header>
 
         <div className="group">
           <label className="field name-field">
-            <span>Dungeon</span>
+            <span>Adventure</span>
             <div className="name-row">
               <input
                 type="text"
@@ -144,7 +135,7 @@ export function DungeonGenerator() {
               <button
                 className="icon-btn"
                 title="New name"
-                onClick={rerollName}
+                onClick={() => set("name", randomName(Math.random))}
               >
                 ↻
               </button>
@@ -163,19 +154,23 @@ export function DungeonGenerator() {
                   set("seed", Math.abs(Number(e.target.value)) || 0)
                 }
               />
-              <button className="icon-btn" title="New seed" onClick={newSeed}>
+              <button
+                className="icon-btn"
+                title="New seed"
+                onClick={() => set("seed", randInt(MAX_SEED))}
+              >
                 ↻
               </button>
             </div>
           </label>
 
-          <button className="primary-btn" onClick={randomDungeon}>
-            Random Dungeon
+          <button className="primary-btn" onClick={newAdventure}>
+            New Adventure
           </button>
         </div>
 
         <div className="group">
-          {FIELDS.map((field) => (
+          {FIELDS.filter((f) => CONTROLS.includes(f.key)).map((field) => (
             <SelectField
               key={field.key}
               field={field}
@@ -185,28 +180,6 @@ export function DungeonGenerator() {
               }
             />
           ))}
-
-          {options.dungeon_size === "Custom" && (
-            <div className="field custom-size">
-              <span>Custom (cols × rows)</span>
-              <div className="name-row">
-                <input
-                  type="number"
-                  value={options.map_cols}
-                  min={7}
-                  max={201}
-                  onChange={(e) => set("map_cols", Number(e.target.value))}
-                />
-                <input
-                  type="number"
-                  value={options.map_rows}
-                  min={7}
-                  max={201}
-                  onChange={(e) => set("map_rows", Number(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="group">
@@ -228,8 +201,9 @@ export function DungeonGenerator() {
         <Legend style={options.map_style} />
 
         <footer className="credit">
-          A from-scratch, client-side remake of donjon's classic 5e dungeon
-          generator. Same seed → same dungeon.
+          The five-room structure comes from John Four at roleplayingtips.com;
+          the eleven shapes from Matthew J. Neagley's forms of the five room
+          dungeon at Gnome Stew.
         </footer>
       </aside>
 
@@ -237,8 +211,9 @@ export function DungeonGenerator() {
         <div className="stage-bar">
           <strong>{options.name}</strong>
           <span className="meta">
-            {roomCount} rooms · {dungeon.doors.length} doors ·{" "}
-            {dungeon.stairs.length} stairs · {dims.width}×{dims.height}px
+            {content.adventure?.topology} · {beats.length} beats ·{" "}
+            {dungeon.rooms.length} rooms · {dungeon.doors.length} doors ·{" "}
+            {dims.width}×{dims.height}px
           </span>
         </div>
         <div className="stage-body">
@@ -249,7 +224,7 @@ export function DungeonGenerator() {
               onClick={onCanvasClick}
             />
           </div>
-          <Codex
+          <Brief
             dungeon={dungeon}
             content={content}
             name={options.name}
