@@ -67,6 +67,16 @@ const ROOM_SIZE: Record<string, { size: number; radix: number }> = {
   Colossal: { size: 3, radix: 4 },
 };
 
+// Room size → fraction of a five-room topology slot the room aims to fill.
+const ROOM_FRACTION: Record<string, number> = {
+  Small: 0.35,
+  Medium: 0.5,
+  Large: 0.6,
+  Huge: 0.7,
+  Gargantuan: 0.8,
+  Colossal: 0.9,
+};
+
 // Straight-corridor bias (percent chance to keep the previous heading).
 const CORRIDOR_STRAIGHT: Record<string, number> = {
   Labyrinth: 0,
@@ -496,13 +506,23 @@ class Generator {
     const offI = Math.floor((this.n_i - slotH * gridH) / 2);
 
     const base = ROOM_SIZE[this.opt.room_size] ?? ROOM_SIZE.Medium;
+    // Room footprint is a fraction of the slot, not a fixed unit count, so a
+    // room actually grows when dungeon_size hands it a bigger slot instead of
+    // just sitting in more empty corridor space.
+    const frac = ROOM_FRACTION[this.opt.room_size] ?? 0.5;
     // Leave at least one free room-unit of slot for the corridor lattice.
     const fit = (want: number, slot: number) =>
       Math.max(1, Math.min(want, slot - 2));
 
     const placed: (Room | undefined)[] = topo.nodes.map(([gx, gy], node) => {
-      const height = fit(base.size + this.rng.int(base.radix + 1), slotH);
-      const width = fit(base.size + this.rng.int(base.radix + 1), slotW);
+      const height = fit(
+        Math.round(slotH * frac) + this.rng.int(base.radix + 1),
+        slotH,
+      );
+      const width = fit(
+        Math.round(slotW * frac) + this.rng.int(base.radix + 1),
+        slotW,
+      );
       const i = offI + gy * slotH + Math.floor((slotH - height) / 2);
       const j = offJ + gx * slotW + Math.floor((slotW - width) / 2);
       const before = this.rooms.length;
