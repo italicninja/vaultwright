@@ -20,6 +20,9 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
 - **Faithful algorithm**: rooms → doors → corridor maze → stairs → dead-end
   removal, the same pipeline as the original.
 - **Deterministic seeds**: the same seed always reproduces the same dungeon.
+- **Shareable links**: the address bar always holds the seed and every
+  changed option (`#/dungeon?seed=…&dungeon_layout=Keep`), so a link opens the
+  exact same map.
 - **All the original controls:**
   - Dungeon size (Fine … Colossal, plus Custom cols × rows)
   - Dungeon layout: Square, Rectangle, Box, Cross, Dagger, Saltire, Keep,
@@ -81,9 +84,10 @@ puzzle gets a trick, the setback a trap, the climax a boss with minions, and
 the resolution a hoard. Stairs go in the entrance (up) and the resolution
 (down). Same seed, same adventure.
 
-`src/dungeon/fiveroom.check.ts` asserts the structural invariant: five distinct
-beats, all reachable on foot from the entrance, across 300 dungeons and every
-shape. Run it with the esbuild line in its header.
+`npm run check` asserts the structural invariants (see below), including five
+distinct beats, all reachable on foot from the entrance, for every dungeon size
+and room size pair and every shape. Five-room maps are floored at 25 x 33 so
+every room is at least 3 cells a side.
 
 ## Getting started
 
@@ -91,8 +95,16 @@ shape. Run it with the esbuild line in its header.
 npm install
 npm run dev      # start the dev server
 npm run build    # typecheck + production build to dist/
+npm run check    # generator self-checks (a few seconds)
 npm run preview  # preview the production build
 ```
+
+`npm run check` generates a few thousand dungeons and fails on the first
+broken one. It asserts that layout masks are one connected piece, every room
+is reachable from every other, the same options always give the same map,
+stairs get placed when asked for, every door glyph is in the door list, every
+room's description lists a way in, a door's text agrees with its glyph, and
+the five-room invariants above.
 
 ## Project structure
 
@@ -103,17 +115,19 @@ src/
     connectivity.ts # traces where each door leads through the corridors
     masks.ts        # dungeon-layout masks (Box, Cross, Round, …)
     fiveroom.ts     # five-room story beats and the topologies they lay out in
-    fiveroom.check.ts # self-check: five beats, all reachable from the entrance
     flags.ts        # per-cell bit flags
     rng.ts          # seeded PRNG (mulberry32)
     types.ts        # option & data-model types
   content/
     tables.ts       # flavor tables (monsters, treasure, traps, features, …)
     stock.ts        # deterministic "stocker" → theme + per-room descriptions
+  check/            # `npm run check`: generator and stocker self-checks
   render/
     draw.ts         # canvas renderer (map, selection, corridor letters)
     palettes.ts     # per-map-style colour palettes
   ui/
+    useMapTool.ts   # shared tool state: options <-> URL, canvas, export
+    MapControls.tsx # shared sidebar fields and map stage
     options.ts      # control definitions + client-side name generator
     Codex.tsx       # description panel (dungeon generator)
     Brief.tsx       # adventure brief panel (five room dungeon)
