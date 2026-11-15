@@ -20,12 +20,17 @@ export const MASKS: Partial<Record<string, Mask>> = {
     [0, 0, 1, 0, 0],
     [0, 0, 1, 0, 0],
   ],
+  // Two blocks thick, so each step of a diagonal shares an edge with the next.
+  // A one-block diagonal only touches at corners, which corridors cannot cross,
+  // and splits the map into separate islands.
   Saltire: [
-    [1, 0, 0, 0, 1],
-    [0, 1, 0, 1, 0],
-    [0, 0, 1, 0, 0],
-    [0, 1, 0, 1, 0],
-    [1, 0, 0, 0, 1],
+    [1, 1, 0, 0, 0, 1, 1],
+    [1, 1, 1, 0, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 0, 1, 1, 1],
+    [1, 1, 0, 0, 0, 1, 1],
   ],
   Dagger: [
     [0, 0, 1, 0, 0],
@@ -37,12 +42,13 @@ export const MASKS: Partial<Record<string, Mask>> = {
     [0, 1, 1, 1, 0],
     [0, 0, 1, 0, 0],
   ],
+  // A central keep with a tower at each corner, joined through the walls.
   Keep: [
     [1, 1, 0, 0, 1, 1],
-    [1, 1, 0, 0, 1, 1],
-    [0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1],
     [1, 1, 0, 0, 1, 1],
   ],
   Hexagon: [
