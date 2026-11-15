@@ -27,7 +27,12 @@ dungeon is generated and drawn **in your browser**, with no server round-trip.
   - Dungeon size (Fine … Colossal, plus Custom cols × rows)
   - Dungeon layout: Square, Rectangle, Box, Cross, Dagger, Saltire, Keep,
     Hexagon, Round, **Nexus** (a large central chamber with labyrinthine arms
-    sprawling out of it), and **Cavernous** (a cellular-automata cave)
+    sprawling out of it), **Cavernous** (a cellular-automata cave), and
+    **Mines** (a shaft sunk from the surface with level drifts at regular
+    depths, winzes between levels, dead-end prospecting spurs and ragged
+    stopes; chambers are cut beside the workings and reached by straight
+    crosscuts, and the Codex switches to mine flavor: ores, cart rails,
+    firedamp, powder magazines)
   - Room layout (Sparse / Scattered / Dense / Symmetric) and room size
   - Door sets (None / Basic / Secure / Standard / Deathtrap): archways, doors,
     locked, trapped, secret, and portcullis

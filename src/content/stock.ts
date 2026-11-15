@@ -7,7 +7,7 @@ import { RNG } from "../dungeon/rng";
 import { CORRIDOR, ROOM, OPENSPACE, DOORSPACE } from "../dungeon/flags";
 import type { Dungeon, Door, DoorType, Dir, RoomRole } from "../dungeon/types";
 import * as T from "./tables";
-import { THEMES } from "./themes";
+import { MINE_THEMES, THEMES } from "./themes";
 
 const DI: Record<Dir, number> = { north: -1, south: 1, west: 0, east: 0 };
 const DJ: Record<Dir, number> = { north: 0, south: 0, west: -1, east: 1 };
@@ -94,7 +94,10 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
   const rng = new RNG((dungeon.seed ^ 0x5f3759df) >>> 0);
 
   // Theme uses its own stream so it stays stable regardless of other content.
-  const theme = new RNG((dungeon.seed ^ 0x9e3779b9) >>> 0).pick(THEMES);
+  const mine = dungeon.options.dungeon_layout === "Mines";
+  const theme = new RNG((dungeon.seed ^ 0x9e3779b9) >>> 0).pick(
+    mine ? MINE_THEMES : THEMES,
+  );
 
   const general = genGeneral(rng, dungeon);
   const corridorFeatures = genCorridorFeatures(rng, dungeon);
@@ -143,7 +146,7 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     const entries = buildEntries(dungeon, room.id, monsters, describeDoor);
     const beat = beats?.get(room.id);
 
-    const feature = rng.chance(0.6) ? genFeature(rng) : undefined;
+    const feature = rng.chance(0.6) ? genFeature(rng, mine) : undefined;
     const treasure = mon && rng.chance(beatTreasureOdds(room.role))
       ? individualTreasure(rng, mon.count)
       : undefined;
@@ -310,10 +313,14 @@ const beatTreasureOdds = (role?: RoomRole) => (role === "Climax" ? 1 : 0.7);
 // - - - general / theme - - -
 
 function genGeneral(rng: RNG, dungeon: Dungeon) {
-  const history =
-    `The dungeon was created by ${rng.pick(T.CREATORS)} as ${rng.pick(
-      T.CREATOR_PURPOSE,
-    )}. Its creators ${rng.pick(T.CREATOR_FATE)}, and ${rng.pick(T.SINCE)}.`;
+  const mine = dungeon.options.dungeon_layout === "Mines";
+  const history = mine
+    ? `The mine was dug by ${rng.pick(T.CREATORS)} for ${rng.pick(
+        T.MINE_ORES,
+      )}. Its miners ${rng.pick(T.CREATOR_FATE)}, and ${rng.pick(T.SINCE)}.`
+    : `The dungeon was created by ${rng.pick(T.CREATORS)} as ${rng.pick(
+        T.CREATOR_PURPOSE,
+      )}. Its creators ${rng.pick(T.CREATOR_FATE)}, and ${rng.pick(T.SINCE)}.`;
 
   const sizeName =
     dungeon.options.dungeon_size === "Custom"
@@ -321,15 +328,15 @@ function genGeneral(rng: RNG, dungeon: Dungeon) {
       : dungeon.options.dungeon_size;
   const size = `${sizeName} (${dungeon.n_cols + 1} x ${dungeon.n_rows + 1})`;
 
-  const walls = rng.pick(T.WALLS);
-  const floor = rng.pick(T.FLOORS);
+  const walls = rng.pick(mine ? T.MINE_WALLS : T.WALLS);
+  const floor = rng.pick(mine ? T.MINE_FLOORS : T.FLOORS);
   return {
     history,
     size,
     walls: `${walls.name} (${walls.note})`,
     floor: floor.note ? `${floor.name} (${floor.note})` : floor.name,
     temperature: rng.pick(T.TEMPERATURES),
-    illumination: rng.pick(T.ILLUMINATION),
+    illumination: rng.pick(mine ? T.MINE_ILLUMINATION : T.ILLUMINATION),
   };
 }
 
@@ -337,6 +344,7 @@ function genGeneral(rng: RNG, dungeon: Dungeon) {
 
 function genCorridorFeatures(rng: RNG, dungeon: Dungeon): CorridorFeature[] {
   const { cell, n_rows, n_cols } = dungeon;
+  const mine = dungeon.options.dungeon_layout === "Mines";
   const open = (r: number, c: number) =>
     !!(cell[r]?.[c] & (OPENSPACE | DOORSPACE));
 
@@ -362,7 +370,9 @@ function genCorridorFeatures(rng: RNG, dungeon: Dungeon): CorridorFeature[] {
     letter: String.fromCharCode(97 + i),
     row: spot.row,
     col: spot.col,
-    text: rng.chance(0.3) ? genTrapLine(rng) : rng.pick(T.CORRIDOR_FLAVOR),
+    text: rng.chance(0.3)
+      ? genTrapLine(rng)
+      : rng.pick(mine && rng.chance(0.7) ? T.MINE_CORRIDOR_FLAVOR : T.CORRIDOR_FLAVOR),
   }));
 }
 
@@ -658,11 +668,11 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function genFeature(rng: RNG): string {
+function genFeature(rng: RNG, mine = false): string {
   const r = rng.next();
   if (r < 0.4) {
-    const purpose = rng.pick(T.ROOM_PURPOSE);
-    const detailArr = T.ROOM_PURPOSE_DETAIL[purpose];
+    const purpose = rng.pick(mine ? T.MINE_ROOM_PURPOSE : T.ROOM_PURPOSE);
+    const detailArr = (mine ? T.MINE_ROOM_PURPOSE_DETAIL : T.ROOM_PURPOSE_DETAIL)[purpose];
     const detail = detailArr ? ` ${rng.pick(detailArr)}` : "";
     return `This room ${rng.pick(T.ROOM_AGE)} ${purpose}${rng.pick(
       T.ROOM_RUIN,
