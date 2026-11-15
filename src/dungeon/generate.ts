@@ -1,6 +1,7 @@
 // Client-side dungeon generator, a faithful port of the algorithm behind
 // donjon's classic generator (rooms → doors → corridor maze → stairs →
-// dead-end removal), extended with a cellular-automata mode for Cavernous.
+// dead-end removal), extended with a cellular-automata mode for Cavernous and
+// a dug-workings mode for Mines.
 
 import { RNG } from "./rng";
 import {
@@ -140,6 +141,8 @@ class Generator {
       this.generateCavern();
     } else if (this.opt.dungeon_layout === "FiveRoom") {
       this.buildFiveRoom();
+    } else if (this.opt.dungeon_layout === "Mines") {
+      this.buildMine();
     } else {
       this.emplaceRooms();
       this.openRooms();
@@ -248,10 +251,12 @@ class Generator {
     const area = this.n_rows * this.n_cols;
     // Room footprint includes a one-cell spacing ring on each side; capacity is
     // the rough max rooms that fit, scaled by density (with a small buffer for
-    // placements that fail on collision).
+    // placements that fail on collision). Mine chambers must also miss every
+    // tunnel, so most throws land badly and they get many more of them.
     const footprint = (roomCells + 2) * (roomCells + 2);
     const capacity = area / footprint;
-    const attempts = Math.max(1, Math.round(capacity * density * 1.3));
+    const buffer = this.opt.dungeon_layout === "Mines" ? 6 : 1.3;
+    const attempts = Math.max(1, Math.round(capacity * density * buffer));
     for (let i = 0; i < attempts; i++) this.emplaceRoom();
   }
 
@@ -299,6 +304,15 @@ class Generator {
     for (let r = r1; r <= r2; r++) {
       for (let c = c1; c <= c2; c++) {
         if (this.cell[r][c] & (BLOCKED | ROOM)) return;
+      }
+    }
+    // Mine chambers are cut after the workings, so neither the room nor its
+    // wall ring may land on a tunnel.
+    if (this.opt.dungeon_layout === "Mines") {
+      for (let r = r1 - 1; r <= r2 + 1; r++) {
+        for (let c = c1 - 1; c <= c2 + 1; c++) {
+          if (this.cell[r][c] & CORRIDOR) return;
+        }
       }
     }
 
@@ -380,7 +394,11 @@ class Generator {
   private openRoom(room: Room) {
     const sills = this.doorSills(room);
     if (!sills.length) return;
-    const nOpens = this.allocOpens(room);
+    // A mine chamber is a dead end off the workings: one way in, rarely two.
+    const nOpens =
+      this.opt.dungeon_layout === "Mines"
+        ? 1 + (this.rng.int(3) === 0 ? 1 : 0)
+        : this.allocOpens(room);
 
     let placed = 0;
     while (placed < nOpens && sills.length) {
@@ -800,9 +818,11 @@ class Generator {
     return null;
   }
 
-  // Cave floor surrounded on all four sides, so a stair never plugs a passage.
+  // Cave or stope floor surrounded on all four sides, so a stair never plugs
+  // a passage.
   private caveStairSpots(): Stair[] {
-    if (this.opt.dungeon_layout !== "Cavernous") return [];
+    const layout = this.opt.dungeon_layout;
+    if (layout !== "Cavernous" && layout !== "Mines") return [];
     const list: Stair[] = [];
     for (let r = 1; r < this.n_rows; r++) {
       for (let c = 1; c < this.n_cols; c++) {
@@ -971,6 +991,20 @@ class Generator {
     const isRock = (r: number, c: number) =>
       r >= 1 && c >= 1 && r < this.n_rows && c < this.n_cols &&
       !(this.cell[r][c] & (BLOCKED | OPENSPACE | DOORSPACE));
+    // Densely cut mine chambers can wall a pocket of rooms in completely, so
+    // there a door may also go through a wall two rooms share, from one
+    // room's floor straight into the other's. Other layouts never needed it,
+    // and leaving them alone keeps their seeds drawing the same maps.
+    const party = this.opt.dungeon_layout === "Mines";
+    const partyWall = (r: number, c: number) => {
+      const room = (d: Dir) => this.cell[r + DI[d]]?.[c + DJ[d]] & ROOM;
+      const stair = (d: Dir) => this.cell[r + DI[d]]?.[c + DJ[d]] & STAIRS;
+      const ns = room("north") && room("south") && !room("west") && !room("east");
+      const we = room("west") && room("east") && !room("north") && !room("south");
+      if (ns) return !stair("north") && !stair("south");
+      if (we) return !stair("west") && !stair("east");
+      return false;
+    };
 
     let goal: number | null = null;
     for (let head = 0; head < queue.length && goal === null; head++) {
@@ -978,9 +1012,10 @@ class Generator {
       const curV = this.cell[cur.r][cur.c];
       const curOpen = comp[cur.r][cur.c] !== -1;
       const curSide = curOpen ? null : roomSide(cur.r, cur.c);
+      const curParty = party && curSide === "many";
       for (const dir of DIRS) {
         // A wall cell is crossed straight: away from its room, or into it.
-        if (curSide && curSide !== "many") {
+        if (curSide && (curSide !== "many" || curParty)) {
           const back = prev.get(key(cur.r, cur.c))!;
           const [br, bc] = [Math.floor(back / W), back % W];
           if (cur.r + DI[dir] !== 2 * cur.r - br || cur.c + DJ[dir] !== 2 * cur.c - bc) continue;
@@ -993,7 +1028,7 @@ class Generator {
         if (nComp === undefined) continue;
         if (nComp === to) {
           // Entering a room floor is only allowed through a wall cell.
-          if (this.cell[nr][nc] & ROOM && curSide !== dir) continue;
+          if (this.cell[nr][nc] & ROOM && curSide !== dir && !curParty) continue;
           if (curOpen) continue; // components touching would already be one
           prev.set(k, key(cur.r, cur.c));
           goal = k;
@@ -1001,10 +1036,11 @@ class Generator {
         }
         if (nComp !== -1 || !isRock(nr, nc)) continue;
         const side = roomSide(nr, nc);
-        if (side === "many") continue;
-        // Never hang a door straight onto a stair.
-        if (side && this.cell[nr + DI[side]][nc + DJ[side]] & STAIRS) continue;
-        if (side) {
+        if (side === "many") {
+          if (!(party && curOpen && curV & ROOM && partyWall(nr, nc))) continue;
+        } else if (side && this.cell[nr + DI[side]][nc + DJ[side]] & STAIRS) {
+          continue; // never hang a door straight onto a stair
+        } else if (side) {
           // A wall cell: we must arrive from straight across its room.
           const fromRoom = curOpen && curV & ROOM && side === opposite(dir);
           const intoRoom = side === dir;
@@ -1029,6 +1065,15 @@ class Generator {
         const roomId = roomIdOf(this.cell[r + DI[side]][c + DJ[side]]);
         const room = this.rooms.find((x) => x.id === roomId)!;
         this.hangDoor(room, r, c, opposite(side));
+      } else if (side === "many") {
+        // A party wall: the door belongs to the room the route came from.
+        const back = prev.get(at)!;
+        const dir = DIRS.find(
+          (d) => r + DI[d] === Math.floor(back / W) && c + DJ[d] === back % W,
+        )!;
+        const roomId = roomIdOf(this.cell[r + DI[dir]][c + DJ[dir]]);
+        const room = this.rooms.find((x) => x.id === roomId)!;
+        this.hangDoor(room, r, c, opposite(dir));
       } else {
         this.dig(r, c);
       }
@@ -1148,6 +1193,256 @@ class Generator {
     }
   }
 
+  // - - - mines mode (shaft, levels, winzes, stopes) - - -
+
+  // A mine is dug, not built. A shaft goes down from the surface, level
+  // drifts run off it at regular depths, winzes link one level to the next,
+  // prospecting spurs stop where the vein gave out, and stopes are hollowed
+  // where the ore was richest. Chambers are cut beside the workings afterwards
+  // and joined to them by short straight crosscuts.
+  private buildMine() {
+    this.digWorkings();
+    this.emplaceRooms();
+    this.openRooms();
+    for (const door of [...this.doors]) this.crosscut(door);
+  }
+
+  private digWorkings() {
+    const jog = MINE_JOG[this.opt.corridor_layout] ?? MINE_JOG.Errant;
+    const busy = this.opt.corridor_layout === "Labyrinth" ? 2 : 1;
+    // Levels sit far enough apart for the smallest chamber (plus its walls)
+    // to fit between them.
+    const base = ROOM_SIZE[this.opt.room_size] ?? ROOM_SIZE.Medium;
+    const spacing = base.size + 2 + (this.n_i < 16 ? 0 : this.rng.int(2));
+    const j0 = clamp(
+      Math.floor(this.n_j / 2) + this.rng.int(5) - 2,
+      1,
+      this.n_j - 2,
+    );
+
+    // Levels: each records the unit row it sits on at every column it spans.
+    const levels: Map<number, number>[] = [];
+    for (
+      let base = 1 + this.rng.int(spacing - 1);
+      base < this.n_i - 1;
+      base += spacing
+    ) {
+      const ja = this.rng.int(Math.max(1, Math.floor(j0 / 2)));
+      const jb =
+        this.n_j - 1 - this.rng.int(Math.max(1, Math.floor((this.n_j - 1 - j0) / 2)));
+      const rowAt = new Map<number, number>();
+      let i = base;
+      for (let j = ja; j <= jb; j++) {
+        if (j > ja && this.rng.next() < jog) {
+          // The drift follows the vein up or down a step, never far off its level.
+          const ni = clamp(i + (this.rng.int(2) ? 1 : -1), base - 1, base + 1);
+          if (ni >= 0 && ni < this.n_i && ni !== i) {
+            this.digUnits(i, j, ni, j);
+            i = ni;
+          }
+        }
+        rowAt.set(j, i);
+        if (j < jb) this.digUnits(i, j, i, j + 1);
+      }
+      levels.push(rowAt);
+    }
+    if (!levels.length) {
+      // Too shallow for levels: a single drift across the middle.
+      const i = Math.floor(this.n_i / 2);
+      this.digUnits(i, 0, i, this.n_j - 1);
+      levels.push(new Map(Array.from({ length: this.n_j }, (_, j) => [j, i])));
+    }
+
+    // The shaft, from the surface past the deepest level into a short sump.
+    const deepest = Math.max(...levels.map((l) => l.get(j0)!));
+    const sump = Math.min(this.n_i - 1, deepest + this.rng.int(3));
+    this.digUnits(0, j0, sump, j0);
+
+    // Winzes between neighbouring levels, clear of the shaft and each other.
+    for (let k = 0; k + 1 < levels.length; k++) {
+      const upper = levels[k];
+      const lower = levels[k + 1];
+      const shared = [...upper.keys()].filter(
+        (j) => lower.has(j) && Math.abs(j - j0) > 2,
+      );
+      const used: number[] = [];
+      const want = this.rng.int(2) + busy;
+      for (const j of this.rng.shuffle(shared)) {
+        if (used.length >= want) break;
+        if (used.some((u) => Math.abs(u - j) < 4)) continue;
+        this.digUnits(upper.get(j)!, j, lower.get(j)!, j);
+        used.push(j);
+      }
+    }
+
+    // Prospecting spurs: short drifts off a level that stop before meeting
+    // anything else.
+    for (const rowAt of levels) {
+      const cols = [...rowAt.keys()];
+      const n = Math.max(1, Math.floor(cols.length / 7)) * busy;
+      for (let s = 0; s < n; s++) {
+        const j = this.rng.pick(cols);
+        const dir: Dir = this.rng.int(2) ? "north" : "south";
+        const len = 1 + this.rng.int(Math.max(1, spacing - 2));
+        let i = rowAt.get(j)!;
+        for (let step = 0; step < len; step++) {
+          const ni = i + DI[dir];
+          if (!this.quietUnit(ni, j, opposite(dir))) break;
+          this.digUnits(i, j, ni, j);
+          i = ni;
+        }
+      }
+    }
+
+    // Stopes: ragged hollows along the levels, elongated with the vein.
+    const stopes = levels.length + this.rng.int(levels.length + 1);
+    for (let s = 0; s < stopes; s++) {
+      const rowAt = this.rng.pick(levels);
+      const j = this.rng.pick([...rowAt.keys()]);
+      const r0 = rowAt.get(j)! * 2 + 1;
+      const c0 = j * 2 + 1;
+      const ry = 1 + this.rng.int(2);
+      const rx = 2 + this.rng.int(3);
+      for (let r = r0 - ry; r <= r0 + ry; r++) {
+        for (let c = c0 - rx; c <= c0 + rx; c++) {
+          if (r < 1 || c < 1 || r > this.n_rows - 1 || c > this.n_cols - 1) continue;
+          const d = ((r - r0) / ry) ** 2 + ((c - c0) / rx) ** 2;
+          if (d <= 0.7 + this.rng.next() * 0.6) this.dig(r, c);
+        }
+      }
+    }
+
+    // Ragged stope edges can leave specks cut off from the rest.
+    this.keepWorkingsFrom(1, j0 * 2 + 1);
+  }
+
+  // Digs a straight run between two unit-lattice points (same row or column).
+  private digUnits(i1: number, j1: number, i2: number, j2: number) {
+    this.delveTunnel(i1 * 2 + 1, j1 * 2 + 1, i2 * 2 + 1, j2 * 2 + 1);
+  }
+
+  // A lattice point a spur may dig into: in bounds, still rock, and touching
+  // no tunnel except the one it came from.
+  private quietUnit(i: number, j: number, back: Dir): boolean {
+    if (i < 0 || i >= this.n_i || j < 0 || j >= this.n_j) return false;
+    const r = i * 2 + 1;
+    const c = j * 2 + 1;
+    if (this.cell[r][c] & CORRIDOR) return false;
+    for (const d of DIRS) {
+      if (d === back) continue;
+      for (const k of [1, 2]) {
+        if (this.cell[r + DI[d] * k]?.[c + DJ[d] * k] & CORRIDOR) return false;
+      }
+    }
+    return true;
+  }
+
+  private keepWorkingsFrom(r0: number, c0: number) {
+    const seen = new Set<number>([r0 * (this.n_cols + 1) + c0]);
+    const stack: Cell[] = [{ r: r0, c: c0 }];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const d of DIRS) {
+        const nr = cur.r + DI[d];
+        const nc = cur.c + DJ[d];
+        const k = nr * (this.n_cols + 1) + nc;
+        if (seen.has(k) || !(this.cell[nr]?.[nc] & CORRIDOR)) continue;
+        seen.add(k);
+        stack.push({ r: nr, c: nc });
+      }
+    }
+    for (let r = 0; r <= this.n_rows; r++) {
+      for (let c = 0; c <= this.n_cols; c++) {
+        if (this.cell[r][c] & CORRIDOR && !seen.has(r * (this.n_cols + 1) + c)) {
+          this.cell[r][c] &= ~CORRIDOR;
+        }
+      }
+    }
+  }
+
+  // Drives a crosscut from just outside `door` to the nearest working, on the
+  // unit lattice, preferring straight runs (a turn costs as much as two
+  // steps). Doors that cannot be reached are dropped later by fixDoors, and
+  // any chamber left with no way in is linked by joinStranded.
+  private crosscut(door: Door) {
+    if (door.outId !== undefined) return;
+    const sr = door.row + DI[door.dir];
+    const sc = door.col + DJ[door.dir];
+    if (this.cell[sr]?.[sc] & CORRIDOR) return;
+
+    const W = this.n_cols + 1;
+    const node = (r: number, c: number) => r * W + c;
+    const best = new Map<number, number>(); // state (node*4+dir) → cost
+    const prev = new Map<number, number>();
+    const buckets: number[][] = [];
+    const push = (state: number, cost: number, from: number) => {
+      const old = best.get(state);
+      if (old !== undefined && old <= cost) return;
+      best.set(state, cost);
+      prev.set(state, from);
+      (buckets[cost] ??= []).push(state);
+    };
+    const start = DIRS.indexOf(door.dir);
+    push(node(sr, sc) * 4 + start, 0, -1);
+    const wall = BLOCKED | ROOM | PERIMETER;
+
+    let goal: { state: number; r: number; c: number } | null = null;
+    for (let cost = 0; cost < buckets.length && !goal; cost++) {
+      for (const state of buckets[cost] ?? []) {
+        if (best.get(state) !== cost) continue;
+        const at = Math.floor(state / 4);
+        const heading = state % 4;
+        const r = Math.floor(at / W);
+        const c = at % W;
+        for (let d = 0; d < 4; d++) {
+          const dir = DIRS[d];
+          const mr = r + DI[dir];
+          const mc = c + DJ[dir];
+          const nr = r + DI[dir] * 2;
+          const nc = c + DJ[dir] * 2;
+          const mid = this.cell[mr]?.[mc];
+          if (mid === undefined || mid & wall) continue;
+          if (mid & CORRIDOR) {
+            goal = { state, r: mr, c: mc };
+            break;
+          }
+          if (nr < 1 || nc < 1 || nr > this.n_rows - 1 || nc > this.n_cols - 1) continue;
+          if (this.cell[nr][nc] & wall) continue;
+          const step = cost + 1 + (d === heading ? 0 : 2);
+          push(node(nr, nc) * 4 + d, step, state);
+          if (this.cell[nr][nc] & CORRIDOR) {
+            // Stop at the first working reached; the walk back digs the rest.
+            if (best.get(node(nr, nc) * 4 + d) === step) {
+              goal = { state: node(nr, nc) * 4 + d, r: nr, c: nc };
+              break;
+            }
+          }
+        }
+        if (goal) break;
+      }
+    }
+    if (!goal) return;
+
+    // Walk back to the door, digging each lattice point and the cell between.
+    // A goal on a mid cell (stope floor) sits next to the last lattice point,
+    // so there is no cell between them to dig.
+    this.dig(goal.r, goal.c);
+    let state = goal.state;
+    const last = Math.floor(state / 4);
+    let [lr, lc] = goal.r % 2 && goal.c % 2
+      ? [goal.r, goal.c]
+      : [Math.floor(last / W), last % W];
+    while (state !== -1) {
+      const at = Math.floor(state / 4);
+      const r = Math.floor(at / W);
+      const c = at % W;
+      if (lr !== r || lc !== c) this.dig((lr + r) / 2, (lc + c) / 2);
+      this.dig(r, c);
+      [lr, lc] = [r, c];
+      state = prev.get(state)!;
+    }
+  }
+
   // - - - cavernous mode (cellular automata) - - -
 
   private generateCavern() {
@@ -1227,6 +1522,13 @@ const MIN_ROOM_UNITS = 2;
 // still get 4-unit slots: one 2-unit room plus 2 units of corridor each way.
 const FIVE_ROOM_MIN_COLS = 3 * 4 * 2 + 1;
 const FIVE_ROOM_MIN_ROWS = 4 * 4 * 2 + 1;
+
+// Mines: chance per column that a level drift steps up or down with the vein.
+const MINE_JOG: Record<string, number> = {
+  Labyrinth: 0.3,
+  Errant: 0.12,
+  Straight: 0,
+};
 
 // Clears entrance/label/door bits before writing a fresh door flag.
 const ESPACE_CLEAR = ENTRANCE | DOORSPACE;

@@ -73,3 +73,17 @@ export const THEMES: string[] = [
   "The world-ship on which ancient human colonists arrived on this world. Malfunction caused it to crash, and those who made it to the escape pods are our ancestors. It is a history so thoroughly lost that no human even suspects we did not originate here.",
   "The famous money hole. It has become a fad among the wealthy to flaunt their excess by throwing ever larger amounts into a deep natural shaft. The hole is heavily guarded, yet creatures may have come up from the underdark to fight over the great heap of treasure. Regardless, there might be another way into those caves.",
 ];
+
+// Headline concepts for the Mines layout, picked from the same stream.
+export const MINE_THEMES: string[] = [
+  "A dwarven delving abandoned in a single night. The tables are still laid, the forges cold with work still in them, and every tunnel ends at a door barred from the far side.",
+  "A mine that struck something alive. The miners kept digging because the vein kept growing back, richer each time, and by the end they could not say whether they were mining it or feeding it.",
+  "A penal mine where the condemned dug until they died. The overseers left long ago; the prisoners never got the message, and their descendants still meet each quota.",
+  "A boom-town mine gone bust overnight when the vein ran out. Its owner is convinced the mother lode lies one more blast away and is hiring anyone, for anything, to find it.",
+  "The workings of a kobold tribe who tunnel by instinct and trap by tradition. Every passage is a little too narrow, every cart rail leads somewhere unpleasant, and the dragon they dig for may or may not exist.",
+  "A mine dug downward toward a voice. The deeper levels are worked to patterns no surveyor drew, and the last shift left their picks in a neat row and walked into the dark.",
+  "A gem mine whose stones hold memories. Touch one and you remember being someone else; the richest seams are guarded by miners who no longer remember being themselves.",
+  "A flooded mine pumped out for the first time in a century. What the water preserved is still down there, and it did not drown.",
+  "A mine worked by the dead, raised by a necromancer who wanted labour that never tires. The necromancer is long gone. The labour continues.",
+  "A coal mine burning underground for forty years. The upper levels are hot and choked with smoke; the lower ones are something else, where the fire has been feeding a thing that likes it.",
+];

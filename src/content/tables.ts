@@ -930,3 +930,97 @@ export const MAGIC_ITEMS = [
   "Scroll of Protection (rare, dmg 199)",
   "Bag of Holding (uncommon, dmg 153)",
 ];
+
+// - - - mines - - -
+// Used in place of the general tables above when the layout is Mines.
+
+export const MINE_ORES = [
+  "silver",
+  "iron",
+  "copper and tin",
+  "gold",
+  "mithral",
+  "adamantine",
+  "coal",
+  "rock salt",
+  "gemstones",
+  "a vein of glowing crystal no one could name",
+  "starmetal fallen from the sky",
+  "the bones of something older than the mountain",
+];
+export const MINE_WALLS = [
+  { name: "Timbered Rock", note: "DC 15 to climb; the props creak under weight" },
+  { name: "Unworked Stone", note: "DC 15 to climb" },
+  { name: "Pick-scarred Rock", note: "DC 10 to climb" },
+  { name: "Shored Earth", note: "DC 12 to climb; crumbles when struck" },
+  { name: "Ore-streaked Stone", note: "DC 15 to climb" },
+];
+export const MINE_FLOORS = [
+  { name: "Loose Rubble", note: "DC 12 to charge or run" },
+  { name: "Rutted Rock with Cart Rails", note: "DC 10 to charge or run across the rails" },
+  { name: "Packed Earth", note: null },
+  { name: "Ankle-deep Seepage", note: "difficult terrain" },
+  { name: "Tailings and Grit", note: "DC 10 to charge or run" },
+];
+export const MINE_ILLUMINATION = [
+  "Dark",
+  "Dark (individual creatures may carry lights)",
+  "Dimly lit by guttering miners' lamps hung from the props",
+  "Dimly lit by the faint glow of the ore itself",
+  "Dark, with candle stubs on every ledge, long since burned out",
+];
+export const MINE_CORRIDOR_FLAVOR = [
+  "Rusted cart rails run along the floor here",
+  "An overturned ore cart blocks half the tunnel",
+  "The timber props here are split and bowed under the weight above",
+  "A rockfall has narrowed the tunnel to a crawl",
+  "Picks and shovels lie where they were dropped",
+  "A thin vein of ore glitters in the wall",
+  "Water pours steadily from a crack in the roof",
+  "A canary cage hangs from a prop, its door open",
+  "The air here smells of firedamp; an open flame would be a mistake",
+  "Chalk tally marks cover a stretch of wall",
+  "A rope and pulley hang down a narrow chute from above",
+  "Drill holes, packed and fused but never fired, line the face",
+  "A miner's helmet lies crushed beneath a fallen beam",
+  "Distant tapping echoes through the rock, steady as a heartbeat",
+  "Ventilation canvas hangs in rotting strips across the passage",
+  "Bootprints in the dust lead in, and none lead out",
+];
+export const MINE_ROOM_PURPOSE = [
+  "a stope where the vein ran richest",
+  "a powder magazine",
+  "a miners' bunkhouse",
+  "a sorting floor",
+  "a winch room",
+  "a pump room",
+  "the foreman's office",
+  "a smithy for sharpening picks",
+  "a stable for pit ponies",
+  "a shrine to the miners' saint",
+  "an ore store",
+  "a refuge chamber",
+];
+export const MINE_ROOM_PURPOSE_DETAIL: Record<string, string[]> = {
+  "a powder magazine": [
+    "Empty kegs are stacked along the walls, and a few that are not empty sit apart beneath a warning daubed in red.",
+  ],
+  "a miners' bunkhouse": [
+    "Rotting pallets line the walls, each with a hook above it where a lamp once hung.",
+  ],
+  "a winch room": [
+    "A great iron winch is bolted to the floor, its cable vanishing into a hole in the ceiling.",
+  ],
+  "a pump room": [
+    "A rusted pump wheel stands in a pool of black water that has long since won.",
+  ],
+  "the foreman's office": [
+    "A rotted desk still holds a ledger of names, the last page of which is only crosses.",
+  ],
+  "a shrine to the miners' saint": [
+    "A crude statue stands in a niche, its hands worn smooth by generations of touching for luck.",
+  ],
+  "a refuge chamber": [
+    "The door was barred from the inside, and scratch marks around it count the days.",
+  ],
+};

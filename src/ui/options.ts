@@ -43,6 +43,7 @@ export const FIELDS: OptionDef[] = [
         "Nexus",
       ]),
       { value: "Cavernous" },
+      { value: "Mines" },
     ],
   },
   {
