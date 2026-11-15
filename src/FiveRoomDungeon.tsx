@@ -1,15 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { generate } from "./dungeon/generate";
-import { stockDungeon } from "./content/stock";
+import { useCallback } from "react";
 import type { DungeonOptions } from "./dungeon/types";
-import { renderDungeon, measure, hitRoom } from "./render/draw";
-import { DEFAULT_OPTIONS, FIELDS, randomName } from "./ui/options";
+import { DEFAULT_OPTIONS, FIELDS, randomName, type OptionDef } from "./ui/options";
 import { SelectField } from "./ui/SelectField";
 import { Brief } from "./ui/Brief";
 import { Legend } from "./ui/Legend";
-
-const MAX_SEED = 2147483647;
-const randInt = (n: number) => Math.floor(Math.random() * n);
+import { randomSeed, useMapTool } from "./ui/useMapTool";
+import { ExportControls, MapStage, NameSeedFields } from "./ui/MapControls";
 
 // The five-room layout drives everything here, so the map controls are only
 // the ones that still mean something for a single-session adventure.
@@ -21,6 +17,17 @@ const CONTROLS: (keyof DungeonOptions)[] = [
   "grid",
 ];
 
+// Fine and Diminutive are too small to hold five rooms with corridors between
+// them (the generator floors them anyway), and Custom has no inputs here.
+const TOO_SMALL = new Set(["Fine", "Diminutive", "Custom"]);
+const FIVE_ROOM_FIELDS: OptionDef[] = FIELDS.filter((f) =>
+  CONTROLS.includes(f.key),
+).map((f) =>
+  f.key === "dungeon_size"
+    ? { ...f, options: f.options.filter((o) => !TOO_SMALL.has(o.value)) }
+    : f,
+);
+
 const BASE: DungeonOptions = {
   ...DEFAULT_OPTIONS,
   dungeon_layout: "FiveRoom",
@@ -30,86 +37,17 @@ const BASE: DungeonOptions = {
 };
 
 export function FiveRoomDungeon() {
-  const [options, setOptions] = useState<DungeonOptions>(() => ({
-    ...BASE,
-    seed: randInt(MAX_SEED),
-    name: randomName(Math.random),
-  }));
-  const [cellSize, setCellSize] = useState(20);
-  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const dungeon = useMemo(() => generate(options), [options]);
-  const content = useMemo(() => stockDungeon(dungeon), [dungeon]);
-
-  useEffect(() => setSelectedRoom(null), [dungeon]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    renderDungeon(canvas, dungeon, {
-      cellSize,
-      grid: options.grid,
-      showLabels: true,
-      selectedRoom,
-      features: content.corridorFeatures,
-    });
-  }, [dungeon, cellSize, options.grid, selectedRoom, content]);
-
-  const set = useCallback(
-    <K extends keyof DungeonOptions>(key: K, value: DungeonOptions[K]) => {
-      setOptions((prev) => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
-
-  const onCanvasClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const id = hitRoom(
-        dungeon,
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        cellSize,
-      );
-      setSelectedRoom((cur) => (id === cur ? null : id));
-    },
-    [dungeon, cellSize],
-  );
+  const tool = useMapTool("fiveroom", BASE);
+  const { options, set, setOptions, dungeon, content } = tool;
 
   const newAdventure = useCallback(() => {
     setOptions((prev) => ({
       ...prev,
-      seed: randInt(MAX_SEED),
+      seed: randomSeed(),
       name: randomName(Math.random),
     }));
-  }, []);
+  }, [setOptions]);
 
-  const downloadPng = useCallback(() => {
-    const off = document.createElement("canvas");
-    renderDungeon(off, dungeon, {
-      cellSize: 24,
-      grid: options.grid,
-      showLabels: true,
-      features: content.corridorFeatures,
-    });
-    off.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const safe =
-        options.name.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") ||
-        String(options.seed);
-      a.download = `${safe}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  }, [dungeon, options.grid, options.name, options.seed, content]);
-
-  const dims = measure(dungeon, cellSize);
   const beats = dungeon.rooms.filter((r) => r.role && r.role !== "Junction");
 
   return (
@@ -123,54 +61,14 @@ export function FiveRoomDungeon() {
           <p className="tagline">Vaultwright</p>
         </header>
 
-        <div className="group">
-          <label className="field name-field">
-            <span>Adventure</span>
-            <div className="name-row">
-              <input
-                type="text"
-                value={options.name}
-                onChange={(e) => set("name", e.target.value)}
-              />
-              <button
-                className="icon-btn"
-                title="New name"
-                onClick={() => set("name", randomName(Math.random))}
-              >
-                ↻
-              </button>
-            </div>
-          </label>
-
-          <label className="field">
-            <span>Seed</span>
-            <div className="name-row">
-              <input
-                type="number"
-                value={options.seed}
-                min={0}
-                max={MAX_SEED}
-                onChange={(e) =>
-                  set("seed", Math.abs(Number(e.target.value)) || 0)
-                }
-              />
-              <button
-                className="icon-btn"
-                title="New seed"
-                onClick={() => set("seed", randInt(MAX_SEED))}
-              >
-                ↻
-              </button>
-            </div>
-          </label>
-
+        <NameSeedFields tool={tool} nameLabel="Adventure">
           <button className="primary-btn" onClick={newAdventure}>
             New Adventure
           </button>
-        </div>
+        </NameSeedFields>
 
         <div className="group">
-          {FIELDS.filter((f) => CONTROLS.includes(f.key)).map((field) => (
+          {FIVE_ROOM_FIELDS.map((field) => (
             <SelectField
               key={field.key}
               field={field}
@@ -182,22 +80,7 @@ export function FiveRoomDungeon() {
           ))}
         </div>
 
-        <div className="group">
-          <label className="field">
-            <span>Cell Size: {cellSize}px</span>
-            <input
-              type="range"
-              min={8}
-              max={40}
-              value={cellSize}
-              onChange={(e) => setCellSize(Number(e.target.value))}
-            />
-          </label>
-          <button className="primary-btn" onClick={downloadPng}>
-            Download PNG
-          </button>
-        </div>
-
+        <ExportControls tool={tool} />
         <Legend style={options.map_style} />
 
         <footer className="credit">
@@ -207,32 +90,24 @@ export function FiveRoomDungeon() {
         </footer>
       </aside>
 
-      <main className="stage">
-        <div className="stage-bar">
-          <strong>{options.name}</strong>
-          <span className="meta">
+      <MapStage
+        tool={tool}
+        meta={
+          <>
             {content.adventure?.topology} · {beats.length} beats ·{" "}
-            {dungeon.rooms.length} rooms · {dungeon.doors.length} doors ·{" "}
-            {dims.width}×{dims.height}px
-          </span>
-        </div>
-        <div className="stage-body">
-          <div className="canvas-scroll">
-            <canvas
-              ref={canvasRef}
-              className="map-canvas"
-              onClick={onCanvasClick}
-            />
-          </div>
+            {dungeon.rooms.length} rooms · {dungeon.doors.length} doors
+          </>
+        }
+        panel={
           <Brief
             dungeon={dungeon}
             content={content}
             name={options.name}
-            selectedRoom={selectedRoom}
-            onSelectRoom={setSelectedRoom}
+            selectedRoom={tool.selectedRoom}
+            onSelectRoom={tool.setSelectedRoom}
           />
-        </div>
-      </main>
+        }
+      />
     </div>
   );
 }

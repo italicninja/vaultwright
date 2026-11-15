@@ -176,6 +176,12 @@ class Generator {
       cols = s.cols;
       rows = s.rows;
     }
+    if (this.opt.dungeon_layout === "FiveRoom") {
+      // Smaller maps squeeze rooms down to single cells, and a hub room that
+      // small runs out of wall for its doors.
+      cols = Math.max(cols, FIVE_ROOM_MIN_COLS);
+      rows = Math.max(rows, FIVE_ROOM_MIN_ROWS);
+    }
     this.n_i = Math.floor(rows / 2);
     this.n_j = Math.floor(cols / 2);
     this.n_rows = this.n_i * 2;
@@ -510,9 +516,10 @@ class Generator {
     // room actually grows when dungeon_size hands it a bigger slot instead of
     // just sitting in more empty corridor space.
     const frac = ROOM_FRACTION[this.opt.room_size] ?? 0.5;
-    // Leave at least one free room-unit of slot for the corridor lattice.
+    // Leave at least one free room-unit of slot for the corridor lattice, and
+    // never go below the smallest normal room (2 units, 3 cells a side).
     const fit = (want: number, slot: number) =>
-      Math.max(1, Math.min(want, slot - 2));
+      Math.max(Math.min(MIN_ROOM_UNITS, slot - 2), Math.min(want, slot - 2));
 
     const placed: (Room | undefined)[] = topo.nodes.map(([gx, gy], node) => {
       const height = fit(
@@ -740,11 +747,18 @@ class Generator {
       return;
     }
     const count = this.opt.add_stairs === "Many" ? this.rng.range(3, 6) : 2;
-    const ends = this.stairEnds();
-    if (!ends.length) return;
+    // Corridor dead ends first, as the original does. Dense maps and caverns
+    // can run out of those, so fall back to room corners, then open cave floor.
+    const pools = [this.stairEnds(), this.roomStairSpots(), this.caveStairSpots()];
 
-    for (let i = 0; i < count && ends.length; i++) {
-      const end = ends.splice(this.rng.int(ends.length), 1)[0];
+    for (let i = 0; i < count; i++) {
+      const pool = pools.find((p) => p.length);
+      if (!pool) break;
+      const end = pool.splice(this.rng.int(pool.length), 1)[0];
+      if (this.cell[end.row][end.col] & STAIRS) {
+        i--;
+        continue;
+      }
       const down = i < 2 ? i === 0 : this.rng.int(2) === 0;
       const stair: Stair = {
         row: end.row,
@@ -758,6 +772,49 @@ class Generator {
     }
   }
 
+  // One corner per room, for maps with no dead ends left to put stairs in.
+  private roomStairSpots(): Stair[] {
+    const list: Stair[] = [];
+    for (const room of this.rng.shuffle([...this.rooms])) {
+      const spot = this.roomCorner(room, this.rng.int(4));
+      if (spot) list.push(spot);
+    }
+    return list;
+  }
+
+  // A corner of `room` that is not the sill of a door, trying corners in
+  // order from `start` (0 NW, 1 NE, 2 SE, 3 SW). Steps toward the room centre.
+  private roomCorner(room: Room, start: number): Stair | null {
+    if (room.width < 3 || room.height < 3) return null;
+    const corners: [number, number, number][] = [
+      [room.north, room.west, 1],
+      [room.north, room.east, 1],
+      [room.south, room.east, -1],
+      [room.south, room.west, -1],
+    ];
+    for (let k = 0; k < 4; k++) {
+      const [row, col, step] = corners[(start + k) % 4];
+      if (this.cell[row][col] & (ENTRANCE | STAIRS)) continue;
+      return { row, col, next_row: row + step, next_col: col, key: "down" };
+    }
+    return null;
+  }
+
+  // Cave floor surrounded on all four sides, so a stair never plugs a passage.
+  private caveStairSpots(): Stair[] {
+    if (this.opt.dungeon_layout !== "Cavernous") return [];
+    const list: Stair[] = [];
+    for (let r = 1; r < this.n_rows; r++) {
+      for (let c = 1; c < this.n_cols; c++) {
+        if (this.cell[r][c] !== CORRIDOR) continue;
+        if (DIRS.every((d) => this.cell[r + DI[d]][c + DJ[d]] === CORRIDOR)) {
+          list.push({ row: r, col: c, next_row: r + 1, next_col: c, key: "down" });
+        }
+      }
+    }
+    return list;
+  }
+
   // The way in and the way onward. Five-room corridors run room to room with
   // no dead ends, so the stairs go in the beats that mean something instead.
   private emplaceBeatStairs() {
@@ -765,16 +822,10 @@ class Generator {
       const room = this.rooms.find((r) => r.role === role);
       if (!room) return;
       const up = key === "up";
-      const row = up ? room.north : room.south;
-      const col = up ? room.west : room.east;
-      this.cell[row][col] |= up ? STAIR_UP : STAIR_DN;
-      this.stairs.push({
-        row,
-        col,
-        next_row: row + (up ? 1 : -1),
-        next_col: col,
-        key,
-      });
+      const spot = this.roomCorner(room, up ? 0 : 2);
+      if (!spot) return;
+      this.cell[spot.row][spot.col] |= up ? STAIR_UP : STAIR_DN;
+      this.stairs.push({ ...spot, key });
     };
     place("Entrance", "up");
     place("Resolution", "down");
@@ -832,7 +883,188 @@ class Generator {
         : (DEADEND_PCT[this.opt.remove_deadends] ?? 0);
     if (pct) this.collapseTunnels(pct);
     this.fixDoors();
+    if (this.opt.dungeon_layout !== "FiveRoom") this.joinStranded();
     this.emptyBlocks();
+    this.clearRoomCorridors();
+  }
+
+  // Dense packing can wall a room in with a corridor pocket that touches
+  // nothing else, so the maze never reaches it. Link every stranded group of
+  // rooms to the largest one by the shortest route through solid rock, hanging
+  // a door wherever the route goes through a room wall.
+  private joinStranded() {
+    for (let guard = 0; guard < this.rooms.length; guard++) {
+      const { comp, roomsIn } = this.openComponents();
+      const withRooms = [...roomsIn.entries()].filter(([, n]) => n > 0);
+      if (withRooms.length < 2) return;
+      withRooms.sort((a, b) => b[1] - a[1]);
+      const main = withRooms[0][0];
+      // Try each stranded group until one links; stop if none can.
+      if (!withRooms.slice(1).some(([id]) => this.linkComponent(comp, id, main))) {
+        return;
+      }
+    }
+  }
+
+  // Flood-fills open space (floor and doors) into components, counting rooms.
+  private openComponents() {
+    const comp = this.cell.map((row) => new Int32Array(row.length).fill(-1));
+    const roomsIn = new Map<number, number>();
+    const open = (r: number, c: number) =>
+      !!(this.cell[r]?.[c] & (OPENSPACE | DOORSPACE));
+    let next = 0;
+    for (let r = 0; r <= this.n_rows; r++) {
+      for (let c = 0; c <= this.n_cols; c++) {
+        if (!open(r, c) || comp[r][c] !== -1) continue;
+        const id = next++;
+        const ids = new Set<number>();
+        const stack: Cell[] = [{ r, c }];
+        comp[r][c] = id;
+        while (stack.length) {
+          const cur = stack.pop()!;
+          const v = this.cell[cur.r][cur.c];
+          if (v & ROOM) ids.add(roomIdOf(v));
+          for (const d of DIRS) {
+            const nr = cur.r + DI[d];
+            const nc = cur.c + DJ[d];
+            if (open(nr, nc) && comp[nr][nc] === -1) {
+              comp[nr][nc] = id;
+              stack.push({ r: nr, c: nc });
+            }
+          }
+        }
+        roomsIn.set(id, ids.size);
+      }
+    }
+    return { comp, roomsIn };
+  }
+
+  // BFS from component `from` through rock to any open cell of `to`. A step
+  // through a room wall must go straight across it (it becomes a door); any
+  // other rock cell on the route must not touch a room, or the new corridor
+  // would run open along that room's floor.
+  private linkComponent(comp: Int32Array[], from: number, to: number): boolean {
+    const W = this.n_cols + 1;
+    const key = (r: number, c: number) => r * W + c;
+    const prev = new Map<number, number>();
+    const queue: Cell[] = [];
+    const seen = new Set<number>();
+    for (let r = 0; r <= this.n_rows; r++) {
+      for (let c = 0; c <= this.n_cols; c++) {
+        if (comp[r][c] === from) {
+          seen.add(key(r, c));
+          queue.push({ r, c });
+        }
+      }
+    }
+    // Which side of a rock cell touches a room, or "many"/null.
+    const roomSide = (r: number, c: number): Dir | "many" | null => {
+      let side: Dir | null = null;
+      for (const d of DIRS) {
+        if (this.cell[r + DI[d]]?.[c + DJ[d]] & ROOM) {
+          if (side) return "many";
+          side = d;
+        }
+      }
+      return side;
+    };
+    const isRock = (r: number, c: number) =>
+      r >= 1 && c >= 1 && r < this.n_rows && c < this.n_cols &&
+      !(this.cell[r][c] & (BLOCKED | OPENSPACE | DOORSPACE));
+
+    let goal: number | null = null;
+    for (let head = 0; head < queue.length && goal === null; head++) {
+      const cur = queue[head];
+      const curV = this.cell[cur.r][cur.c];
+      const curOpen = comp[cur.r][cur.c] !== -1;
+      const curSide = curOpen ? null : roomSide(cur.r, cur.c);
+      for (const dir of DIRS) {
+        // A wall cell is crossed straight: away from its room, or into it.
+        if (curSide && curSide !== "many") {
+          const back = prev.get(key(cur.r, cur.c))!;
+          const [br, bc] = [Math.floor(back / W), back % W];
+          if (cur.r + DI[dir] !== 2 * cur.r - br || cur.c + DJ[dir] !== 2 * cur.c - bc) continue;
+        }
+        const nr = cur.r + DI[dir];
+        const nc = cur.c + DJ[dir];
+        const k = key(nr, nc);
+        if (seen.has(k)) continue;
+        const nComp = comp[nr]?.[nc];
+        if (nComp === undefined) continue;
+        if (nComp === to) {
+          // Entering a room floor is only allowed through a wall cell.
+          if (this.cell[nr][nc] & ROOM && curSide !== dir) continue;
+          if (curOpen) continue; // components touching would already be one
+          prev.set(k, key(cur.r, cur.c));
+          goal = k;
+          break;
+        }
+        if (nComp !== -1 || !isRock(nr, nc)) continue;
+        const side = roomSide(nr, nc);
+        if (side === "many") continue;
+        // Never hang a door straight onto a stair.
+        if (side && this.cell[nr + DI[side]][nc + DJ[side]] & STAIRS) continue;
+        if (side) {
+          // A wall cell: we must arrive from straight across its room.
+          const fromRoom = curOpen && curV & ROOM && side === opposite(dir);
+          const intoRoom = side === dir;
+          if (!fromRoom && !intoRoom) continue;
+        } else if (curOpen && curV & ROOM) {
+          continue; // room floor only opens through a wall cell
+        }
+        seen.add(k);
+        prev.set(k, key(cur.r, cur.c));
+        queue.push({ r: nr, c: nc });
+      }
+    }
+    if (goal === null) return false;
+
+    // Walk back, digging rock and hanging doors in room walls.
+    let at = prev.get(goal)!;
+    while (comp[Math.floor(at / W)][at % W] === -1) {
+      const r = Math.floor(at / W);
+      const c = at % W;
+      const side = roomSide(r, c);
+      if (side && side !== "many") {
+        const roomId = roomIdOf(this.cell[r + DI[side]][c + DJ[side]]);
+        const room = this.rooms.find((x) => x.id === roomId)!;
+        this.hangDoor(room, r, c, opposite(side));
+      } else {
+        this.dig(r, c);
+      }
+      at = prev.get(at)!;
+    }
+    return true;
+  }
+
+  // Hangs a door in a wall cell of `room`, facing `dir` out of it.
+  private hangDoor(room: Room, r: number, c: number, dir: Dir) {
+    const type = this.doorType();
+    const meta = DOOR_META[type];
+    this.cell[r][c] &= ~(PERIMETER | ESPACE_CLEAR);
+    this.cell[r][c] |= ENTRANCE | meta.flag;
+    const door: Door = {
+      row: r,
+      col: c,
+      type,
+      roomId: room.id,
+      dir,
+      key: meta.key,
+      desc: meta.desc,
+    };
+    room.doors.push(door);
+    this.doors.push(door);
+  }
+
+  // The maze tunnels straight through rooms (that is how it links the regions
+  // rooms wall off), which leaves CORRIDOR set on room floor. Clear it so a
+  // cell is a room or a corridor, never both, for everything downstream.
+  private clearRoomCorridors() {
+    for (const row of this.cell) {
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] & ROOM) row[c] &= ~CORRIDOR;
+      }
+    }
   }
 
   private collapseTunnels(pct: number) {
@@ -855,7 +1087,7 @@ class Generator {
         this.cell[r][c] = NOTHING;
         const nr = r + DI[dir];
         const nc = c + DJ[dir];
-        if (this.cell[nr]?.[nc] !== undefined) {
+        if (this.cell[nr]?.[nc] !== undefined && !(this.cell[nr][nc] & ROOM)) {
           this.cell[nr][nc] |= CORRIDOR;
           this.collapse(nr, nc);
         }
@@ -870,7 +1102,8 @@ class Generator {
     let openCount = 0;
     let openDir: Dir | null = null;
     for (const d of DIRS) {
-      if (this.cell[r + DI[d]]?.[c + DJ[d]] & OPENSPACE) {
+      // A door counts as open: a corridor that ends at one is not a dead end.
+      if (this.cell[r + DI[d]]?.[c + DJ[d]] & (OPENSPACE | DOORSPACE)) {
         openCount++;
         openDir = d;
       }
@@ -987,6 +1220,13 @@ class Generator {
         map[r][c] = keep.has(`${r},${c}`);
   }
 }
+
+// Smallest room side, in room units (3 cells), matching the normal room sizes.
+const MIN_ROOM_UNITS = 2;
+// Five-room maps are floored so the widest (3) and tallest (4) topology grids
+// still get 4-unit slots: one 2-unit room plus 2 units of corridor each way.
+const FIVE_ROOM_MIN_COLS = 3 * 4 * 2 + 1;
+const FIVE_ROOM_MIN_ROWS = 4 * 4 * 2 + 1;
 
 // Clears entrance/label/door bits before writing a fresh door flag.
 const ESPACE_CLEAR = ENTRANCE | DOORSPACE;

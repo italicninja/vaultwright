@@ -36,8 +36,6 @@ export type RoomSize =
   | "Gargantuan"
   | "Colossal";
 
-export type Polymorph = "" | "Yes" | "Many";
-export type PeripheralEgress = "" | "Yes" | "Many" | "Tiling";
 export type DoorSet = "None" | "Basic" | "Secure" | "Standard" | "Deathtrap";
 export type CorridorLayout = "Labyrinth" | "Errant" | "Straight";
 export type RemoveDeadends = "" | "Some" | "All";
@@ -69,10 +67,8 @@ export interface DungeonOptions {
   map_cols: number;
   map_rows: number;
   dungeon_layout: DungeonLayout;
-  peripheral_egress: PeripheralEgress;
   room_layout: RoomLayout;
   room_size: RoomSize;
-  room_polymorph: Polymorph;
   door_set: DoorSet;
   corridor_layout: CorridorLayout;
   remove_deadends: RemoveDeadends;

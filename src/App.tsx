@@ -41,7 +41,8 @@ const TOOLS: Tool[] = [
   },
 ];
 
-const route = () => location.hash.replace(/^#\/?/, "");
+// "#/dungeon?seed=1" → "dungeon"; the query belongs to the tool.
+const route = () => location.hash.replace(/^#\/?/, "").split("?")[0];
 
 export function App() {
   const [slug, setSlug] = useState(route);

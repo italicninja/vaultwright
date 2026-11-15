@@ -5,7 +5,7 @@
 
 import { RNG } from "../dungeon/rng";
 import { CORRIDOR, ROOM, OPENSPACE, DOORSPACE } from "../dungeon/flags";
-import type { Dungeon, Door, Dir, RoomRole } from "../dungeon/types";
+import type { Dungeon, Door, DoorType, Dir, RoomRole } from "../dungeon/types";
 import * as T from "./tables";
 import { THEMES } from "./themes";
 
@@ -24,6 +24,7 @@ export interface SymbolLine {
 }
 export interface DoorEntry {
   label: string;
+  doorType: DoorType;
   title: string;
   symbols: SymbolLine[];
   leadsTo?: { id: number; inhabited?: string };
@@ -112,15 +113,34 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     number,
     { full: string; short: string; count: number } | null
   >();
+  // Each room rolls from its own stream, so changing one room (a door added,
+  // a room dropped) leaves every other room's writeup as it was.
+  const roomRngs = new Map(
+    dungeon.rooms.map((room) => [room.id, roomRng(dungeon.seed, room.id)]),
+  );
   for (const room of dungeon.rooms) {
-    monsters.set(room.id, rollMonster(rng, room.role));
+    monsters.set(room.id, rollMonster(roomRngs.get(room.id)!, room.role));
   }
+
+  // A door between two rooms shows on both rooms' cards, so it is described
+  // once, from its own stream, and both sides read the same.
+  const doorText = new Map<Door, { title: string; symbols: SymbolLine[] }>();
+  const describeDoor = (door: Door) => {
+    let text = doorText.get(door);
+    if (!text) {
+      const seed = (dungeon.seed ^ 0x2545f491) + Math.imul(door.row, 0x85ebca6b);
+      text = genDoorDesc(new RNG((seed + Math.imul(door.col, 0xc2b2ae35)) >>> 0), door);
+      doorText.set(door, text);
+    }
+    return text;
+  };
 
   // Pass 2: build the full writeups.
   const rooms = new Map<number, RoomContent>();
   for (const room of dungeon.rooms) {
+    const rng = roomRngs.get(room.id)!;
     const mon = monsters.get(room.id) ?? null;
-    const entries = buildEntries(rng, dungeon, room.id, monsters);
+    const entries = buildEntries(dungeon, room.id, monsters, describeDoor);
     const beat = beats?.get(room.id);
 
     const feature = rng.chance(0.6) ? genFeature(rng) : undefined;
@@ -183,6 +203,10 @@ export function stockDungeon(dungeon: Dungeon): DungeonContent {
     wanderingMonsters,
     rooms,
   };
+}
+
+function roomRng(seed: number, roomId: number): RNG {
+  return new RNG(((seed ^ 0x5f3759df) + Math.imul(roomId, 0x9e3779b1)) >>> 0);
 }
 
 // - - - five-room beats - - -
@@ -344,39 +368,59 @@ function genCorridorFeatures(rng: RNG, dungeon: Dungeon): CorridorFeature[] {
 
 // - - - entries / doors - - -
 
+const OPPOSITE: Record<Dir, Dir> = {
+  north: "south",
+  south: "north",
+  west: "east",
+  east: "west",
+};
+
 function buildEntries(
-  rng: RNG,
   dungeon: Dungeon,
   roomId: number,
   monsters: Map<number, { short: string } | null>,
+  describeDoor: (door: Door) => { title: string; symbols: SymbolLine[] },
 ): DoorEntry[] {
-  const doors = dungeon.doors.filter((d) => d.roomId === roomId);
-  const byDir = new Map<Dir, Door[]>();
-  for (const d of doors) {
-    if (!byDir.has(d.dir)) byDir.set(d.dir, []);
-    byDir.get(d.dir)!.push(d);
+  // This room's own doors, plus doors a neighbour opened straight into it
+  // through a shared wall (seen from this side, they face the other way).
+  const byDir = new Map<Dir, { door: Door; dest?: number }[]>();
+  const add = (dir: Dir, door: Door, dest?: number) => {
+    if (!byDir.has(dir)) byDir.set(dir, []);
+    byDir.get(dir)!.push({ door, dest });
+  };
+  for (const d of dungeon.doors) {
+    if (d.roomId === roomId) add(d.dir, d, d.destId);
+    else if (d.destId === roomId && isWallToWall(dungeon, d)) {
+      add(OPPOSITE[d.dir], d, d.roomId);
+    }
   }
 
   const entries: DoorEntry[] = [];
   for (const dir of ["north", "south", "west", "east"] as Dir[]) {
     const list = byDir.get(dir);
     if (!list) continue;
-    list.sort((a, b) => a.row - b.row || a.col - b.col);
-    list.forEach((door, idx) => {
+    list.sort((a, b) => a.door.row - b.door.row || a.door.col - b.door.col);
+    list.forEach(({ door, dest }, idx) => {
       const label =
         list.length > 1
           ? `${DIR_LABEL[dir]} Entry #${idx + 1}`
           : `${DIR_LABEL[dir]} Entry`;
-      const { title, symbols } = genDoorDesc(rng, door);
+      const { title, symbols } = describeDoor(door);
       let leadsTo: DoorEntry["leadsTo"];
-      if (door.destId && door.destId !== roomId) {
-        const destMon = monsters.get(door.destId);
-        leadsTo = { id: door.destId, inhabited: destMon?.short };
+      if (dest && dest !== roomId) {
+        leadsTo = { id: dest, inhabited: monsters.get(dest)?.short };
       }
-      entries.push({ label, title, symbols, leadsTo });
+      entries.push({ label, doorType: door.type, title, symbols, leadsTo });
     });
   }
   return entries;
+}
+
+// True when the cell beyond the door is the other room's floor, not corridor.
+function isWallToWall(dungeon: Dungeon, door: Door): boolean {
+  const r = door.row + DI[door.dir];
+  const c = door.col + DJ[door.dir];
+  return !!(dungeon.cell[r]?.[c] & ROOM);
 }
 
 function genDoorDesc(
@@ -402,9 +446,11 @@ function genDoorDesc(
   const mat = weightedMaterial(rng);
   const secret = door.type === "secret";
   const trapped = door.type === "trap";
+  // The map glyph already says locked or not, so the text has to agree: only a
+  // "lock" door is locked. Any other door may still be stuck.
   let state: "unlocked" | "locked" | "stuck";
   if (door.type === "lock") state = "locked";
-  else state = rng.pick(["unlocked", "locked", "stuck"] as const);
+  else state = rng.chance(0.2) ? "stuck" : "unlocked";
 
   let stateWord: string;
   let lockInfo: string;
