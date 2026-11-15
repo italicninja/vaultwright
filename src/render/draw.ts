@@ -49,6 +49,21 @@ export function measure(dungeon: Dungeon, cellSize = DEFAULT_CELL) {
   };
 }
 
+// Browsers refuse oversized canvases (iOS Safari caps the area near 16.7M
+// pixels, others cap each side) and draw nothing at all. Large maps trade some
+// sharpness for actually rendering.
+const MAX_CANVAS_AREA = 16_000_000;
+const MAX_CANVAS_SIDE = 16_384;
+
+function backingScale(width: number, height: number): number {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.min(
+    dpr,
+    Math.sqrt(MAX_CANVAS_AREA / (width * height)),
+    MAX_CANVAS_SIDE / Math.max(width, height),
+  );
+}
+
 export function renderDungeon(
   canvas: HTMLCanvasElement,
   dungeon: Dungeon,
@@ -58,7 +73,7 @@ export function renderDungeon(
   const pal = getPalette(dungeon.options.map_style);
   const { width, height } = measure(dungeon, cs);
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = backingScale(width, height);
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   canvas.style.width = `${width}px`;

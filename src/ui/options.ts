@@ -46,16 +46,6 @@ export const FIELDS: OptionDef[] = [
     ],
   },
   {
-    key: "peripheral_egress",
-    label: "Peripheral Egress",
-    options: [
-      { value: "", text: "No" },
-      { value: "Yes", text: "Yes" },
-      { value: "Many", text: "Many" },
-      { value: "Tiling", text: "Tiling" },
-    ],
-  },
-  {
     key: "room_layout",
     label: "Room Layout",
     options: plain(["Sparse", "Scattered", "Dense", "Symmetric"]),
@@ -71,15 +61,6 @@ export const FIELDS: OptionDef[] = [
       "Gargantuan",
       "Colossal",
     ]),
-  },
-  {
-    key: "room_polymorph",
-    label: "Room Polymorph",
-    options: [
-      { value: "", text: "No" },
-      { value: "Yes", text: "Yes" },
-      { value: "Many", text: "Many" },
-    ],
   },
   {
     key: "door_set",
@@ -149,10 +130,8 @@ export const DEFAULT_OPTIONS: DungeonOptions = {
   map_cols: 51,
   map_rows: 65,
   dungeon_layout: "Rectangle",
-  peripheral_egress: "",
   room_layout: "Scattered",
   room_size: "Medium",
-  room_polymorph: "Yes",
   door_set: "Standard",
   corridor_layout: "Errant",
   remove_deadends: "Some",

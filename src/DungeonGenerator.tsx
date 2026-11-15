@@ -1,125 +1,39 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { generate } from "./dungeon/generate";
-import { stockDungeon } from "./content/stock";
+import { useCallback } from "react";
 import type { DungeonOptions } from "./dungeon/types";
-import { renderDungeon, measure, hitRoom } from "./render/draw";
-import { DEFAULT_OPTIONS, FIELDS, randomName } from "./ui/options";
+import { DEFAULT_OPTIONS, FIELDS } from "./ui/options";
 import { SelectField } from "./ui/SelectField";
 import { Legend } from "./ui/Legend";
 import { Codex } from "./ui/Codex";
+import { randomSeed, useMapTool } from "./ui/useMapTool";
+import { ExportControls, MapStage, NameSeedFields } from "./ui/MapControls";
 
-const MAX_SEED = 2147483647;
-const randInt = (n: number) => Math.floor(Math.random() * n);
+// The structural options "Random Dungeon" rerolls; size and style stay put.
+const RANDOMIZE: (keyof DungeonOptions)[] = [
+  "dungeon_layout",
+  "room_layout",
+  "room_size",
+  "door_set",
+  "corridor_layout",
+  "remove_deadends",
+  "add_stairs",
+];
 
 export function DungeonGenerator() {
-  const [options, setOptions] = useState<DungeonOptions>(() => ({
-    ...DEFAULT_OPTIONS,
-    seed: randInt(MAX_SEED),
-    name: randomName(Math.random),
-  }));
-  const [cellSize, setCellSize] = useState(20);
-  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const dungeon = useMemo(() => generate(options), [options]);
-  const content = useMemo(() => stockDungeon(dungeon), [dungeon]);
-
-  // A fresh dungeon clears the selection.
-  useEffect(() => setSelectedRoom(null), [dungeon]);
-
-  const roomCount = dungeon.rooms.filter((room) => {
-    const cr = Math.round((room.north + room.south) / 2);
-    const cc = Math.round((room.west + room.east) / 2);
-    return !!dungeon.cell[cr]?.[cc];
-  }).length;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    renderDungeon(canvas, dungeon, {
-      cellSize,
-      grid: options.grid,
-      showLabels: true,
-      selectedRoom,
-      features: content.corridorFeatures,
-    });
-  }, [dungeon, cellSize, options.grid, selectedRoom, content]);
-
-  const onCanvasClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const id = hitRoom(dungeon, px, py, cellSize);
-      setSelectedRoom((cur) => (id === cur ? null : id));
-    },
-    [dungeon, cellSize],
-  );
-
-  const set = useCallback(
-    <K extends keyof DungeonOptions>(key: K, value: DungeonOptions[K]) => {
-      setOptions((prev) => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
-
-  const newSeed = useCallback(() => {
-    setOptions((prev) => ({ ...prev, seed: randInt(MAX_SEED) }));
-  }, []);
-
-  const rerollName = useCallback(() => {
-    setOptions((prev) => ({ ...prev, name: randomName(Math.random) }));
-  }, []);
+  const tool = useMapTool("dungeon", DEFAULT_OPTIONS);
+  const { options, set, setOptions, dungeon, content } = tool;
 
   const randomDungeon = useCallback(() => {
     setOptions((prev) => {
-      const next: DungeonOptions = { ...prev, seed: randInt(MAX_SEED) };
-      const randomize: (keyof DungeonOptions)[] = [
-        "dungeon_layout",
-        "peripheral_egress",
-        "room_layout",
-        "room_size",
-        "room_polymorph",
-        "door_set",
-        "corridor_layout",
-        "remove_deadends",
-        "add_stairs",
-      ];
+      const next: DungeonOptions = { ...prev, seed: randomSeed() };
       for (const field of FIELDS) {
-        if (!randomize.includes(field.key)) continue;
+        if (!RANDOMIZE.includes(field.key)) continue;
         const choices = field.options.filter((o) => o.value !== "Custom");
-        (next[field.key] as string) = choices[randInt(choices.length)].value;
+        (next[field.key] as string) =
+          choices[Math.floor(Math.random() * choices.length)].value;
       }
       return next;
     });
-  }, []);
-
-  const downloadPng = useCallback(() => {
-    // Render at a crisp fixed cell size to an offscreen canvas.
-    const off = document.createElement("canvas");
-    renderDungeon(off, dungeon, {
-      cellSize: 24,
-      grid: options.grid,
-      showLabels: true,
-      features: content.corridorFeatures,
-    });
-    off.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const safe =
-        options.name.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") ||
-        String(options.seed);
-      a.download = `${safe}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  }, [dungeon, options.grid, options.name, options.seed, content]);
-
-  const dims = measure(dungeon, cellSize);
+  }, [setOptions]);
 
   return (
     <div className="app">
@@ -132,47 +46,11 @@ export function DungeonGenerator() {
           <p className="tagline">Vaultwright</p>
         </header>
 
-        <div className="group">
-          <label className="field name-field">
-            <span>Dungeon</span>
-            <div className="name-row">
-              <input
-                type="text"
-                value={options.name}
-                onChange={(e) => set("name", e.target.value)}
-              />
-              <button
-                className="icon-btn"
-                title="New name"
-                onClick={rerollName}
-              >
-                ↻
-              </button>
-            </div>
-          </label>
-
-          <label className="field">
-            <span>Seed</span>
-            <div className="name-row">
-              <input
-                type="number"
-                value={options.seed}
-                min={0}
-                max={MAX_SEED}
-                onChange={(e) =>
-                  set("seed", Math.abs(Number(e.target.value)) || 0)
-                }
-              />
-              <button className="icon-btn" title="New seed" onClick={newSeed}>
-                ↻
-              </button>
-            </div>
-          </label>
-
+        <NameSeedFields tool={tool} nameLabel="Dungeon">
           <button className="primary-btn" onClick={randomDungeon}>
             Random Dungeon
           </button>
-        </div>
+        </NameSeedFields>
 
         <div className="group">
           {FIELDS.map((field) => (
@@ -209,55 +87,34 @@ export function DungeonGenerator() {
           )}
         </div>
 
-        <div className="group">
-          <label className="field">
-            <span>Cell Size: {cellSize}px</span>
-            <input
-              type="range"
-              min={8}
-              max={40}
-              value={cellSize}
-              onChange={(e) => setCellSize(Number(e.target.value))}
-            />
-          </label>
-          <button className="primary-btn" onClick={downloadPng}>
-            Download PNG
-          </button>
-        </div>
-
+        <ExportControls tool={tool} />
         <Legend style={options.map_style} />
 
         <footer className="credit">
           A from-scratch, client-side remake of donjon's classic 5e dungeon
-          generator. Same seed → same dungeon.
+          generator. Same seed → same dungeon, and the address bar links to
+          this one.
         </footer>
       </aside>
 
-      <main className="stage">
-        <div className="stage-bar">
-          <strong>{options.name}</strong>
-          <span className="meta">
-            {roomCount} rooms · {dungeon.doors.length} doors ·{" "}
-            {dungeon.stairs.length} stairs · {dims.width}×{dims.height}px
-          </span>
-        </div>
-        <div className="stage-body">
-          <div className="canvas-scroll">
-            <canvas
-              ref={canvasRef}
-              className="map-canvas"
-              onClick={onCanvasClick}
-            />
-          </div>
+      <MapStage
+        tool={tool}
+        meta={
+          <>
+            {dungeon.rooms.length} rooms · {dungeon.doors.length} doors ·{" "}
+            {dungeon.stairs.length} stairs
+          </>
+        }
+        panel={
           <Codex
             dungeon={dungeon}
             content={content}
             name={options.name}
-            selectedRoom={selectedRoom}
-            onSelectRoom={setSelectedRoom}
+            selectedRoom={tool.selectedRoom}
+            onSelectRoom={tool.setSelectedRoom}
           />
-        </div>
-      </main>
+        }
+      />
     </div>
   );
 }
